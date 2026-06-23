@@ -3,11 +3,11 @@ package com.tzy.api.service;
 import com.alibaba.fastjson.JSON;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.tzy.api.common.HttpUtils;
 import com.tzy.api.common.ThreadPoolUtils;
 import com.tzy.api.entity.User;
 import com.tzy.api.spider.dto.*;
+import jakarta.annotation.PreDestroy;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -16,13 +16,13 @@ import org.jsoup.Connection;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import jakarta.annotation.PreDestroy;
+
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +31,7 @@ import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -425,6 +426,62 @@ public class DownloadService {
         }
         if (Objects.equals(1, collect.getHas_more())) {
             discoverFromCollects(collect.getCursor(), collectsId, newAuthors);
+        }
+    }
+
+    private void downloadImage(AwemeList aweme, Path main, Collection<Path> partners) {
+        try {
+            List<Images> images = aweme.getImages();
+            if (CollectionUtils.isEmpty(images)) {
+                return;
+            }
+            String desc = removeChar(removeIllegalCharacters(aweme.getDesc()));
+            String folderName = aweme.getCreate_time() + "-" + desc;
+            if (folderName.length() > 200) {
+                folderName = aweme.getAweme_id();
+            }
+            Path mainImagePath = Paths.get(main.toString() + File.separator + folderName);
+            createDir(mainImagePath);
+            for (int i = 0, imagesSize = images.size(); i < imagesSize; i++) {
+                Images image = images.get(i);
+                Optional<String> first = image.getUrl_list().stream().filter(o -> StringUtils.contains(o, ".jpeg?")).findFirst();
+                Path imagePath = Paths.get(mainImagePath.toString(), i + ".jpeg");
+                if (!Files.exists(imagePath) && first.isPresent()) {
+                    Connection.Response response = HttpUtils.getResponse(first.get());
+                    byte[] bytes = response.bodyAsBytes();
+                    log.info("正在下载图片:{},{}", desc, imagePath);
+                    Files.write(imagePath, bytes, StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                }
+                if (Objects.nonNull(image.getVideo())) {
+                    downloadVideo(mainImagePath, Lists.newArrayList(), image.getVideo(), String.valueOf(i), aweme.getShare_url());
+                }
+            }
+            ArrayList<Path> imagesPaths = Lists.newArrayList();
+            for (Path path : partners) {
+                Path imagesPath = Paths.get(path.toString() + File.separator + folderName);
+                createDir(imagesPath);
+                imagesPaths.add(imagesPath);
+            }
+
+            if (CollectionUtils.isNotEmpty(images)) {
+                for (Path imagesPath : imagesPaths) {
+                    for (int i = 0, imagesSize = images.size(); i < imagesSize; i++) {
+                        Images image = images.get(i);
+                        String filename = i + ".jpeg";
+                        Optional<String> first = image.getUrl_list().stream().filter(o -> StringUtils.contains(o, ".jpeg?")).findFirst();
+                        Path imagePath = Paths.get(imagesPath.toString(), filename);
+                        if (!Files.exists(imagePath) && first.isPresent()) {
+                            Files.createLink(imagePath, Paths.get(mainImagePath.toString(), filename));
+                        }
+                        if (Objects.nonNull(image.getVideo())) {
+                            downloadVideo(mainImagePath, Stream.of(imagesPath).collect(Collectors.toSet()), image.getVideo(), String.valueOf(i), aweme.getShare_url());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("downloadImage error :{}", e.getMessage());
+            downloadImage(aweme, main, partners);
         }
     }
 }
