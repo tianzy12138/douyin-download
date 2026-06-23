@@ -11,6 +11,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.jsoup.Connection;
 import org.jsoup.nodes.Document;
 
@@ -636,8 +637,8 @@ public class Tiktok {
         try {
             return JSON.parseObject(text, JsonRootBean.class);
         } catch (Exception e) {
-            log.info(text);
-            if (StringUtils.contains(text, "X-TT-System-Error")) {
+            log.info("json解析异常", e.getMessage());
+            if (Strings.CI.contains(text, "X-TT-System-Error")) {
                 Thread.sleep(TimeUnit.MINUTES.toMillis(10));
             }
             return findPosts(maxCursor, secUserId, aid);
