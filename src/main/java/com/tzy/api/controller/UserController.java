@@ -2,6 +2,7 @@ package com.tzy.api.controller;
 
 import com.tzy.api.entity.User;
 import com.tzy.api.service.UserService;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,12 @@ public class UserController {
         User user = userService.addUser(request.getShareUrl(), request.getNickname());
         return ResponseEntity.ok(user);
     }
+
+    @PostMapping("/by-collection")
+    public ResponseEntity<Void> addUserByCollection() {
+        userService.addUserByCollection();
+        return ResponseEntity.noContent().build();
+    }
     
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable String id, @RequestBody UpdateUserRequest request) {
@@ -38,14 +45,14 @@ public class UserController {
         userService.deleteById(id);
         return ResponseEntity.noContent().build();
     }
-    
-    @lombok.Data
+
+    @Data
     public static class AddUserRequest {
         private String shareUrl;
         private String nickname;
     }
-    
-    @lombok.Data
+
+    @Data
     public static class UpdateUserRequest {
         private Boolean enabled;
     }

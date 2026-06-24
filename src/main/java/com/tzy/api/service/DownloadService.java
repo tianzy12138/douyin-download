@@ -90,8 +90,8 @@ public class DownloadService {
 
     private String removeChar(String filename) {
         return StringUtils.trim(StringUtils.replaceEach(filename,
-            new String[]{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"},
-            new String[]{"", "", "", "", "", "", "", "", ""}));
+                new String[]{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"},
+                new String[]{"", "", "", "", "", "", "", "", ""}));
     }
 
     private String buildFilename(AwemeList aweme) {
@@ -101,6 +101,48 @@ public class DownloadService {
             s = aweme.getAweme_id();
         }
         return s;
+    }
+
+    @SneakyThrows
+    public void cancelCollect(String id) {
+        HashMap<String, String> data = Maps.newHashMap();
+        data.put("action", "0");
+        data.put("aweme_type", "0");
+        data.put("aweme_id", id);
+        StringBuilder stringBuilder = fill(new StringBuilder("https://www.douyin.com/aweme/v1/web/aweme/collect/?"));
+        stringBuilder.append("&aid=" + AID);
+        stringBuilder.append("&update_version_code=170400");
+        stringBuilder.append("&pc_client_type=1");
+        stringBuilder.append("&pc_libra_divert=Windows");
+        stringBuilder.append("&update_version_code=170400");
+        stringBuilder.append("&support_h265=1");
+        stringBuilder.append("&support_dash=1");
+        stringBuilder.append("&version_name=17.4.0");
+        stringBuilder.append("&browser_language=zh-CN");
+        stringBuilder.append("&browser_platform=Win32");
+        stringBuilder.append("&browser_name=Edge");
+        stringBuilder.append("&browser_version=135.0.0.0");
+        stringBuilder.append("&engine_name=Blink");
+        stringBuilder.append("&engine_version=135.0.0.0");
+        stringBuilder.append("&os_version=10");
+        stringBuilder.append("&cpu_core_num=4");
+        stringBuilder.append("&device_memory=8");
+        stringBuilder.append("&platform=PC");
+        stringBuilder.append("&downlink=1.5");
+        stringBuilder.append("&effective_type=4g");
+        stringBuilder.append("&round_trip_time=100");
+        stringBuilder.append("&webid=7462351083349313039");
+        stringBuilder.append("&uifid=a061b0aeafc5f81960457244188fc0aa90cbddf27d4ca38da72bcf4a38905bfbd042888f45c098796e5330c5e3a1897f766debb98abfa28a5974cf4ccef6a778bfdad7274f4651d609be5daf25292f74a01caf58367aa2bce2edd880b5e4bb523dd6cc27aa147ce0e1108a2e9bf50b63c8c76f3e694d0a00e455800b9543747dfe7e32e42b47d7f2d37a52ee4f8948f0dc0a00aa3098b239243445c2450ecc19");
+        stringBuilder.append("&msToken=24D7x8wQza7nmFU12cSc45jXP8MMoUbH32FzWG9KcfQ38hPs9fI6NgjOnDoWax8QIYLT08e7hc2Oc3xseO_UBV6NidyEosnt2Tg6rF3BS1GLSP2c5_2VHj8x6A68mOwwBYveW7MLt1_3vQy2xt22vBGezFd22PnPMNNKfqkJOosPQQ%3D%3D");
+        stringBuilder.append("&a_bogus=D7UjDeULQZR5OVKSmCkw93IUxzolNT8yCai2bLqPSOP4TZzaE8NrZzzSaKORbJanTuMhwlI7ziCruVfOKtWxZCCkLmpvuis6Bt2VIzsL8HZmbBkg7r68e4bxoiTTUSGY8%2FIAiZRRAsMK2EOWVr9TAdI7F%2FvrRbDdMq-vV%2FzjY9Km0WSji92Ca5ydNh7qrD%3D%3D");
+        stringBuilder.append("&verifyFp=verify_m8ky9qta_okERLfGL_yBIW_4m0M_8Ex4_la2xOXGh4ZeQ");
+        stringBuilder.append("&fp=verify_m8ky9qta_okERLfGL_yBIW_4m0M_8Ex4_la2xOXGh4ZeQ");
+        Map<String, String> header = buildHeader("https://www.douyin.com/user/self?from_tab_name=main&modal_id=" + id + "&showTab=favorite_collection");
+        header.put("x-secsdk-csrf-token", "DOWNGRADE");
+        Document post = HttpUtils.postHeader(stringBuilder.toString(), data, header);
+        if (StringUtils.contains(post.body().text(), "3009008")) {
+            cancelCollect(id);
+        }
     }
 
     @SneakyThrows
@@ -380,14 +422,16 @@ public class DownloadService {
     }
 
     @SneakyThrows
-    public List<Author> discoverFromCollects(Long collectsId) {
-        List<Author> newAuthors = Lists.newArrayList();
+    public List<AwemeList> discoverFromCollects(Long collectsId) {
+        if (Objects.isNull(collectsId)) {
+            collectsId = 7492594126609848114L;
+        }
+        List<AwemeList> newAuthors = Lists.newArrayList();
         discoverFromCollects(0L, collectsId, newAuthors);
         return newAuthors;
     }
 
-    @SneakyThrows
-    private void discoverFromCollects(Long maxCursor, Long collectsId, List<Author> newAuthors) {
+    private void discoverFromCollects(Long maxCursor, Long collectsId, List<AwemeList> newAuthors) {
         StringBuilder stringBuilder = fill(new StringBuilder("https://www.douyin.com/aweme/v1/web/collects/video/list/?"));
         stringBuilder.append("&aid=" + AID);
         stringBuilder.append("&collects_id=" + collectsId);
@@ -421,8 +465,7 @@ public class DownloadService {
             return;
         }
         for (AwemeList follow : followings) {
-            Author author = follow.getAuthor();
-            newAuthors.add(author);
+            newAuthors.add(follow);
         }
         if (Objects.equals(1, collect.getHas_more())) {
             discoverFromCollects(collect.getCursor(), collectsId, newAuthors);
