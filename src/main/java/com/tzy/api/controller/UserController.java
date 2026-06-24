@@ -2,11 +2,16 @@ package com.tzy.api.controller;
 
 import com.tzy.api.entity.User;
 import com.tzy.api.service.UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 @Slf4j
@@ -45,6 +50,20 @@ public class UserController {
         userService.deleteById(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/export")
+    public void exportUsers(HttpServletResponse response) throws IOException {
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=1.txt");
+
+        List<User> users = userService.findAll();
+        try (PrintWriter writer = response.getWriter()) {
+            for (User user : users) {
+                writer.println(user.getNickname() + " " + user.getShareUrl());
+            }
+        }
+    }
+
 
     @Data
     public static class AddUserRequest {

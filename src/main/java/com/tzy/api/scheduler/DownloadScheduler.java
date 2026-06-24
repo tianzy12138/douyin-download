@@ -26,7 +26,7 @@ public class DownloadScheduler {
         log.info("定时下载任务完成");
     }
 
-    @Scheduled(fixedDelay = 1, fixedRate = 30, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(initialDelay = 1L, fixedDelay = 30L, timeUnit = TimeUnit.MINUTES)
     public void executeCollectsDiscovery() {
         userService.addUserByCollection();
     }
