@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import org.apache.commons.lang3.Strings;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,7 +30,9 @@ public class User {
 
     private LocalDateTime createdAt;
 
-    private LocalDateTime lastPostTime;
+    private LocalDate lastPostTime;
+
+    private LocalDate syncTime;
 
     @PrePersist
     public void prePersist() {

@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 public class DataRecordService {
 
     private final DataRecordRepository dataRecordRepository;
+    private final UserService userService;
 
     public Page<DataRecord> findPending(Pageable pageable) {
         return dataRecordRepository.findByStatus(DownloadStatus.PENDING, pageable);
@@ -59,6 +60,7 @@ public class DataRecordService {
         record.setUserId(author.getUid());
         record.setNickname(author.getNickname());
         record.setSecUid(author.getSec_uid());
+
 
         CooperationInfo cooperationInfo = aweme.getCooperation_info();
         if (Objects.nonNull(cooperationInfo) && CollectionUtils.isNotEmpty(cooperationInfo.getCo_creators())) {
@@ -113,7 +115,7 @@ public class DataRecordService {
         record.setTitle(aweme.getDesc());
         record.setStatus(DownloadStatus.PENDING);
         record.setSourceUrl(aweme.getShare_url());
-
+        userService.updateLastPostTime(record.getSecUid(), record.getPublishTime());
         dataRecordRepository.save(record);
     }
 

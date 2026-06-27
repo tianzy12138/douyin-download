@@ -6,12 +6,16 @@ import com.tzy.api.spider.dto.Author;
 import com.tzy.api.spider.dto.AwemeList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -30,6 +34,17 @@ public class UserService {
 
     public List<User> findEnabledUsers() {
         return userRepository.findByEnabledTrue();
+    }
+
+    public List<User> findEnabledUsersByDays(int days) {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(days);
+        LocalDate today = LocalDate.now();
+        return userRepository.findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThanEqual(threshold, today);
+    }
+
+    public List<User> findNotPublishUsersByDays(int days) {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(days);
+        return userRepository.findByEnabledTrueAndLastPostTimeLessThanEqual(threshold);
     }
 
     public Optional<User> findById(String id) {
@@ -86,11 +101,20 @@ public class UserService {
     }
 
     @Transactional
+    @Async
     public void updateLastPostTime(String secUid, LocalDateTime lastPostTime) {
         userRepository.findBySecUid(secUid).ifPresent(user -> {
-            user.setLastPostTime(lastPostTime);
-            userRepository.save(user);
+            if (Objects.isNull(user.getLastPostTime())
+                    || lastPostTime.toLocalDate().isAfter(user.getLastPostTime())) {
+                user.setLastPostTime(lastPostTime.toLocalDate());
+                userRepository.save(user);
+            }
         });
+    }
+
+    @Transactional
+    public void updateSyncTime(String id) {
+        userRepository.updateSyncTimeById(id, LocalDate.now());
     }
 
     private String extractSecUid(String shareUrl) {
@@ -105,6 +129,9 @@ public class UserService {
 
     public void addUserByCollection() {
         List<AwemeList> authors = downloadService.discoverFromCollects(null);
+        if (CollectionUtils.isEmpty(authors)) {
+            return;
+        }
         List<User> existingUsers = findAll();
         Set<String> existingSecUids = existingUsers.stream()
                 .map(User::getSecUid)

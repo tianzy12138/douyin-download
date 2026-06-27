@@ -23,6 +23,7 @@ public class DownloadScheduler {
         log.info("定时下载任务开始");
         for (User user : userService.findEnabledUsers()) {
             downloadService.downloadUserContent(user, false);
+            userService.updateSyncTime(user.getId());
         }
         log.info("定时下载任务完成");
     }
