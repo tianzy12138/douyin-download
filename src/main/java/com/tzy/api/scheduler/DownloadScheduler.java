@@ -5,6 +5,8 @@ import com.tzy.api.service.DownloadService;
 import com.tzy.api.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +18,9 @@ import java.util.concurrent.TimeUnit;
 public class DownloadScheduler {
     
     private final DownloadService downloadService;
-    private final UserService userService;
+    @Autowired
+    @Lazy
+    private UserService userService;
     
     @Scheduled(cron = "${app.schedule.download-cron}")
     public void executeDownloadTask() {

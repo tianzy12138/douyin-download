@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
@@ -27,7 +29,10 @@ import java.util.stream.Collectors;
 public class DataRecordService {
 
     private final DataRecordRepository dataRecordRepository;
-    private final UserService userService;
+
+    @Autowired
+    @Lazy
+    private UserService userService;
 
     public Page<DataRecord> findPending(Pageable pageable) {
         return dataRecordRepository.findByStatus(DownloadStatus.PENDING, pageable);
