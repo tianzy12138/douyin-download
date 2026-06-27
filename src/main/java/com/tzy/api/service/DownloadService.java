@@ -22,8 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +35,7 @@ import java.util.stream.Stream;
 @Service
 public class DownloadService {
 
+    private final DataRecordService dataRecordService;
     private static final String AID = "6383";
     private static final String ILLEGAL_CHARACTERS_REGEX = "[\\\\/:*?\"<>|\\n.]";
     private static final Pattern PATTERN = Pattern.compile("from\\_aid=(\\d+)");
@@ -52,8 +51,9 @@ public class DownloadService {
 
     protected ExecutorService threadPool;
 
-    public DownloadService() {
+    public DownloadService(DataRecordService dataRecordService) {
         this.threadPool = ThreadPoolUtils.getThreadPool(5, DownloadService.class.getSimpleName());
+        this.dataRecordService = dataRecordService;
     }
 
     @PreDestroy
@@ -349,6 +349,10 @@ public class DownloadService {
         });
     }
 
+    private void doSave(AwemeList o) {
+        dataRecordService.saveFromAwemeList(o);
+    }
+
     private void downloadVideo(AwemeList aweme, Collection<Path> paths) {
         downloadVideo(paths, aweme.getVideo(), buildFilename(aweme), aweme.getShare_url());
     }
@@ -365,7 +369,8 @@ public class DownloadService {
         int attempts = 0;
         while (attempts < maxAttempts) {
             try {
-                findContentWithHandle(user.getShareUrl(), 0L, this::doDownload, update);
+//                findContentWithHandle(user.getShareUrl(), 0L, this::doDownload, update);
+                findContentWithHandle(user.getShareUrl(), 0L, this::doSave, update);
                 return;
             } catch (Exception e) {
                 attempts++;
@@ -399,18 +404,9 @@ public class DownloadService {
             }
             int total = list.size();
             int current = list.size();
-            if (update) {
-                Instant minus = Instant.now().minus(5L, ChronoUnit.DAYS);
-                list = list.stream()
-                        .filter(o -> Instant.ofEpochSecond(o.getCreate_time()).isAfter(minus))
-                        .collect(Collectors.toList());
-                current = list.size();
-                if (CollectionUtils.isEmpty(list)) {
-                    return;
-                }
-            }
             for (AwemeList awemeList : list) {
-                doDownload(awemeList);
+//                doDownload(awemeList);
+                doSave(awemeList);
             }
             if (has_more == 1 && total == current) {
                 findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor(), handle, update);

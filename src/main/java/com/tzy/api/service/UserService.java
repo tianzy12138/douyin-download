@@ -114,7 +114,7 @@ public class UserService {
             if (!existingSecUids.contains(author.getSec_uid())) {
                 addBySecUid(author.getSec_uid(), author.getNickname());
             }
-            downloadService.cancelCollect(aweme.getAweme_id());
+//            downloadService.cancelCollect(aweme.getAweme_id());
         }
     }
 }
