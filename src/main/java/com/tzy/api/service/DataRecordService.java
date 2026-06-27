@@ -17,10 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +31,14 @@ public class DataRecordService {
         return dataRecordRepository.findByStatus(DownloadStatus.PENDING, pageable);
     }
 
+    public Optional<DataRecord> findByContentId(String contentId) {
+        return dataRecordRepository.findByContentId(contentId);
+    }
+
+    public boolean existsByContentId(String contentId) {
+        return dataRecordRepository.existsByContentId(contentId);
+    }
+
     public DataRecord markAsDownloaded(String id) {
         DataRecord record = dataRecordRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("记录不存在: " + id));
@@ -41,7 +46,12 @@ public class DataRecordService {
         return dataRecordRepository.save(record);
     }
 
-    public DataRecord saveFromAwemeList(AwemeList aweme) {
+    public void saveFromAwemeList(AwemeList aweme) {
+        String awemeId = aweme.getAweme_id();
+        boolean b = existsByContentId(awemeId);
+        if (b) {
+            return;
+        }
         DataRecord record = new DataRecord();
         Author author = aweme.getAuthor();
         record.setUserId(author.getUid());
@@ -97,12 +107,12 @@ public class DataRecordService {
         record.setPublishTime(LocalDateTime.ofInstant(
                 Instant.ofEpochSecond(aweme.getCreate_time()),
                 ZoneId.systemDefault()));
-        record.setContentId(aweme.getAweme_id());
+        record.setContentId(awemeId);
         record.setTitle(aweme.getDesc());
         record.setStatus(DownloadStatus.PENDING);
         record.setSourceUrl(aweme.getShare_url());
 
-        return dataRecordRepository.save(record);
+        dataRecordRepository.save(record);
     }
 
     private Partner convertToPartner(CoCreators coCreator) {

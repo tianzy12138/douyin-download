@@ -1,5 +1,6 @@
 package com.tzy.api.scheduler;
 
+import com.tzy.api.entity.User;
 import com.tzy.api.service.DownloadService;
 import com.tzy.api.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +21,9 @@ public class DownloadScheduler {
     @Scheduled(cron = "${app.schedule.download-cron}")
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
-        userService.findEnabledUsers().forEach(user -> {
+        for (User user : userService.findEnabledUsers()) {
             downloadService.downloadUserContent(user, false);
-        });
+        }
         log.info("定时下载任务完成");
     }
 

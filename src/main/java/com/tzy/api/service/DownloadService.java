@@ -25,7 +25,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -370,7 +369,7 @@ public class DownloadService {
         while (attempts < maxAttempts) {
             try {
 //                findContentWithHandle(user.getShareUrl(), 0L, this::doDownload, update);
-                findContentWithHandle(user.getShareUrl(), 0L, this::doSave, update);
+                findContentWithHandle(user.getShareUrl(), 0L);
                 return;
             } catch (Exception e) {
                 attempts++;
@@ -382,20 +381,20 @@ public class DownloadService {
         }
     }
 
-    public void findContentWithHandle(String shareUrl, Long maxCursor, Consumer<AwemeList> handle, boolean update) {
+    public void findContentWithHandle(String shareUrl, Long maxCursor) {
         log.info("正在处理用户数据：{}", shareUrl);
         try {
             JsonRootBean jsonRootBean = findPostsByShareUrl(shareUrl, maxCursor);
             if (Objects.isNull(jsonRootBean)) {
                 log.warn("RESPONSE_IS_NULL: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor, handle, update);
+                findContentWithHandle(shareUrl, maxCursor);
                 return;
             }
             Long status_code = jsonRootBean.getStatus_code();
             Long has_more = jsonRootBean.getHas_more();
             if (status_code != 0) {
                 log.warn("STATUS_CODE_IS_NOT_ZERO: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor, handle, update);
+                findContentWithHandle(shareUrl, maxCursor);
                 return;
             }
             List<AwemeList> list = jsonRootBean.getAweme_list();
@@ -409,11 +408,11 @@ public class DownloadService {
                 doSave(awemeList);
             }
             if (has_more == 1 && total == current) {
-                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor(), handle, update);
+                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor());
             }
         } catch (Exception e) {
             log.error("findContentWithHandle error", e);
-            findContentWithHandle(shareUrl, maxCursor, handle, update);
+            findContentWithHandle(shareUrl, maxCursor);
         }
     }
 
