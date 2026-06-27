@@ -14,10 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,6 +31,12 @@ public class UserService {
 
     public List<User> findEnabledUsers() {
         return userRepository.findByEnabledTrue();
+    }
+
+    public List<User> findRandomEnabledUsers() {
+        List<User> byEnabledTrue = userRepository.findByEnabledTrueAndLastPostTimeIsNull();
+        Collections.shuffle(byEnabledTrue);
+        return byEnabledTrue.stream().limit(10).collect(Collectors.toList());
     }
 
     public List<User> findEnabledUsersByDays(int days) {

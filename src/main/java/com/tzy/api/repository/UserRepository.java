@@ -28,4 +28,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("UPDATE User u SET u.syncTime = :syncTime WHERE u.id = :id")
     int updateSyncTimeById(String id, LocalDate syncTime);
 
+    List<User> findByEnabledTrueAndLastPostTimeIsNull();
+
 }

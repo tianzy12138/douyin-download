@@ -21,11 +21,11 @@ public class DownloadScheduler {
     @Autowired
     @Lazy
     private UserService userService;
-    
-    @Scheduled(cron = "${app.schedule.download-cron}")
+
+    @Scheduled(initialDelay = 1L, fixedDelay = 15L, timeUnit = TimeUnit.MINUTES)
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
-        for (User user : userService.findEnabledUsers()) {
+        for (User user : userService.findRandomEnabledUsers()) {
             downloadService.downloadUserContent(user, false);
             userService.updateSyncTime(user.getId());
         }
