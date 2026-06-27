@@ -12,6 +12,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -46,6 +47,7 @@ public class DataRecordService {
         return dataRecordRepository.save(record);
     }
 
+    @Async
     public void saveFromAwemeList(AwemeList aweme) {
         String awemeId = aweme.getAweme_id();
         boolean b = existsByContentId(awemeId);

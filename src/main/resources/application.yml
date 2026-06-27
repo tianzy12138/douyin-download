@@ -18,6 +18,19 @@ spring:
       path: /h2-console
       settings:
         web-allow-others: true
+  task:
+    execution:
+      pool:
+        core-size: 8         # 核心线程数（默认 8）
+        max-size: 32         # 最大线程数（默认 Integer.MAX_VALUE）
+        queue-capacity: 500  # 队列容量（默认 Integer.MAX_VALUE）
+        keep-alive: 60s      # 空闲线程存活时间
+      shutdown:
+        await-termination: true # 关闭应用时是否等待未完成的任务
+        await-termination-period: 30s
+  threads:
+    virtual:
+      enabled: true
 app:
   schedule:
     download-cron: "0 0 2 * * ?"
