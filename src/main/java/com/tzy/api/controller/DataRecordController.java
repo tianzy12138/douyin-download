@@ -39,7 +39,7 @@ public class DataRecordController {
     public void addBySecUid(@PathVariable String secUid) {
         User user = new User();
         user.setShareUrl("https://www.douyin.com/user/" + secUid);
-        downloadService.downloadUserContent(user);
+        downloadService.downloadUserContent(user, true);
     }
 
     @Data

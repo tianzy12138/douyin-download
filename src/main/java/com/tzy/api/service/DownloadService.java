@@ -4,14 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.tzy.api.common.HttpUtils;
-import com.tzy.api.common.ThreadPoolUtils;
 import com.tzy.api.entity.User;
 import com.tzy.api.spider.dto.*;
-import jakarta.annotation.PreDestroy;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.jsoup.Connection;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,27 +32,19 @@ import java.util.stream.Stream;
 @Service
 public class DownloadService {
 
-    private final DataRecordService dataRecordService;
     private static final String AID = "6383";
     private static final String ILLEGAL_CHARACTERS_REGEX = "[\\\\/:*?\"<>|\\n.]";
     private static final Pattern PATTERN = Pattern.compile("from\\_aid=(\\d+)");
-
+    private final DataRecordService dataRecordService;
     @Value("${app.download.base-path:}")
     private String basePath;
 
     @Value("${app.download.cookie}")
     private String cookie;
 
-    protected ExecutorService threadPool;
 
     public DownloadService(DataRecordService dataRecordService) {
-        this.threadPool = ThreadPoolUtils.getThreadPool(5, DownloadService.class.getSimpleName());
         this.dataRecordService = dataRecordService;
-    }
-
-    @PreDestroy
-    public void close() {
-        threadPool.shutdown();
     }
 
     public static String removeIllegalCharacters(String filePath) {
@@ -136,7 +126,7 @@ public class DownloadService {
         Map<String, String> header = buildHeader("https://www.douyin.com/user/self?from_tab_name=main&modal_id=" + id + "&showTab=favorite_collection");
         header.put("x-secsdk-csrf-token", "DOWNGRADE");
         Document post = HttpUtils.postHeader(stringBuilder.toString(), data, header);
-        if (StringUtils.contains(post.body().text(), "3009008")) {
+        if (Strings.CI.contains(post.body().text(), "3009008")) {
             cancelCollect(id);
         }
     }
@@ -161,16 +151,10 @@ public class DownloadService {
         }
     }
 
-    public void addRunnable(Runnable command) {
-        threadPool.execute(command);
-    }
-
     @SneakyThrows
     public Profile findProfile(String secUserId) {
         String s = StringUtils.substringAfter(secUserId, "/user/");
-        StringBuilder stringBuilder = new StringBuilder("https://www.douyin.com/aweme/v1/web/user/profile/other/?aid=" + AID);
-        stringBuilder.append("&sec_user_id=" + s);
-        Document document = HttpUtils.get(stringBuilder.toString(), buildHeader(secUserId));
+        Document document = HttpUtils.get("https://www.douyin.com/aweme/v1/web/user/profile/other/?aid=" + AID + "&sec_user_id=" + s, buildHeader(secUserId));
         String text = document.body().text();
         Profile profile = JSON.parseObject(text, Profile.class);
         if (Objects.isNull(profile)) {
@@ -182,7 +166,7 @@ public class DownloadService {
     public String findShareFullUrl(String shareUrl) throws Exception {
         Document document = HttpUtils.get(shareUrl, buildHeader(shareUrl));
         String s = document.baseUri();
-        if (StringUtils.contains(s, "www.douyin.com/user/")) {
+        if (Strings.CI.contains(s, "www.douyin.com/user/")) {
             Matcher matcher = PATTERN.matcher(document.toString());
             if (matcher.find()) {
                 String group = matcher.group();
@@ -198,7 +182,7 @@ public class DownloadService {
             return null;
         }
         StringBuilder stringBuilder = fill(new StringBuilder("https://www.douyin.com/aweme/v1/web/aweme/post/?aid=" + AID));
-        stringBuilder.append("&sec_user_id=" + secUserId);
+        stringBuilder.append("&sec_user_id=").append(secUserId);
         stringBuilder.append("&publish_video_strategy_type=2");
         stringBuilder.append("&from_user_page=1");
         stringBuilder.append("&version_code=290100");
@@ -215,7 +199,7 @@ public class DownloadService {
             return JSON.parseObject(text, JsonRootBean.class);
         } catch (Exception e) {
             log.info(text);
-            if (StringUtils.contains(text, "X-TT-System-Error")) {
+            if (Strings.CI.contains(text, "X-TT-System-Error")) {
                 Thread.sleep(TimeUnit.MINUTES.toMillis(10));
             }
             return findPosts(maxCursor, secUserId);
@@ -224,21 +208,17 @@ public class DownloadService {
 
     public JsonRootBean findPostsByShareUrl(String shareUrl, Long maxCursor) throws Exception {
         String secUserId;
-        if (StringUtils.contains(shareUrl, "https://v.douyin.com/")) {
+        if (Strings.CI.contains(shareUrl, "https://v.douyin.com/")) {
             String code = StringUtils.substringBetween(shareUrl, "https://v.douyin.com/", "/");
             String shareFullUrl = findShareFullUrl("https://v.douyin.com/" + code + "/");
             secUserId = StringUtils.substringBefore(StringUtils.substringAfterLast(shareFullUrl, "/"), "?");
         } else {
-            if (StringUtils.contains(shareUrl, "?")) {
+            if (Strings.CI.contains(shareUrl, "?")) {
                 secUserId = StringUtils.substringBetween(shareUrl, "https://www.douyin.com/user/", "?");
             } else {
                 secUserId = StringUtils.substringAfterLast(shareUrl, "/");
             }
         }
-        return findPosts(maxCursor, secUserId, AID);
-    }
-
-    private JsonRootBean findPosts(Long maxCursor, String secUserId, String aid) {
         return findPosts(maxCursor, secUserId);
     }
 
@@ -259,7 +239,7 @@ public class DownloadService {
                     .map(PlayAddr::getUrl_list)
                     .orElse(Lists.newArrayList())
                     .stream()
-                    .filter(j -> StringUtils.contains(j, "www.douyin.com"))
+                    .filter(j -> Strings.CI.contains(j, "www.douyin.com"))
                     .findFirst();
             if (collect.isPresent() && videoPaths.stream().anyMatch(o -> !Files.exists(o))) {
                 Connection.Response response = HttpUtils.getResponse(collect.get(), buildHeader(shareUrl));
@@ -303,7 +283,7 @@ public class DownloadService {
                 for (Path imagesPath : imagesPaths) {
                     for (int i = 0, imagesSize = images.size(); i < imagesSize; i++) {
                         Images image = images.get(i);
-                        Optional<String> first = image.getUrl_list().stream().filter(o -> StringUtils.contains(o, ".jpeg?")).findFirst();
+                        Optional<String> first = image.getUrl_list().stream().filter(o -> Strings.CI.contains(o, ".jpeg?")).findFirst();
                         Path imagePath = Paths.get(imagesPath.toString(), i + ".jpeg");
                         if (!Files.exists(imagePath) && first.isPresent()) {
                             Connection.Response response = HttpUtils.getResponse(first.get());
@@ -324,25 +304,23 @@ public class DownloadService {
     }
 
     private void doDownload(AwemeList o) {
-        addRunnable(() -> {
-            Author author = o.getAuthor();
-            ArrayList<Path> paths = Lists.newArrayList();
-            CooperationInfo partners = o.getCooperation_info();
-            Path path = Paths.get(basePath, author.getUid());
-            createName(path, author.getNickname(), author.getSec_uid());
-            if (Objects.nonNull(partners)) {
-                List<CoCreators> partnerList = partners.getCo_creators();
-                if (CollectionUtils.isNotEmpty(partnerList)) {
-                    for (CoCreators co_creator : partnerList) {
-                        Path path1 = Paths.get(basePath, co_creator.getUid());
-                        createName(path1, co_creator.getNickname(), co_creator.getSec_uid());
-                        paths.add(path1);
-                    }
+        Author author = o.getAuthor();
+        ArrayList<Path> paths = Lists.newArrayList();
+        CooperationInfo partners = o.getCooperation_info();
+        Path path = Paths.get(basePath, author.getUid());
+        createName(path, author.getNickname(), author.getSec_uid());
+        if (Objects.nonNull(partners)) {
+            List<CoCreators> partnerList = partners.getCo_creators();
+            if (CollectionUtils.isNotEmpty(partnerList)) {
+                for (CoCreators co_creator : partnerList) {
+                    Path path1 = Paths.get(basePath, co_creator.getUid());
+                    createName(path1, co_creator.getNickname(), co_creator.getSec_uid());
+                    paths.add(path1);
                 }
             }
-            downloadImage(o, path, paths);
-            downloadVideo(o, path, paths);
-        });
+        }
+        downloadImage(o, path, paths);
+        downloadVideo(o, path, paths);
     }
 
     private void doSave(AwemeList o) {
@@ -361,43 +339,39 @@ public class DownloadService {
         downloadVideo(Lists.newArrayList(main), video, filename, shareUrl);
     }
 
-    public void downloadUserContent(User user) {
-//                findContentWithHandle(user.getShareUrl(), 0L, this::doDownload, update);
-        findContentWithHandle(user.getShareUrl(), 0L);
+    public void downloadUserContent(User user, Boolean all) {
+        findContentWithHandle(user.getShareUrl(), 0L, all);
     }
 
-    public void findContentWithHandle(String shareUrl, Long maxCursor) {
+    public void findContentWithHandle(String shareUrl, Long maxCursor, boolean all) {
         log.info("正在处理用户数据：{}", shareUrl);
         try {
             JsonRootBean jsonRootBean = findPostsByShareUrl(shareUrl, maxCursor);
             if (Objects.isNull(jsonRootBean)) {
                 log.warn("RESPONSE_IS_NULL: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor);
+                findContentWithHandle(shareUrl, maxCursor, all);
                 return;
             }
             Long status_code = jsonRootBean.getStatus_code();
             Long has_more = jsonRootBean.getHas_more();
             if (status_code != 0) {
                 log.warn("STATUS_CODE_IS_NOT_ZERO: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor);
+                findContentWithHandle(shareUrl, maxCursor, all);
                 return;
             }
             List<AwemeList> list = jsonRootBean.getAweme_list();
             if (CollectionUtils.isEmpty(list)) {
                 return;
             }
-            int total = list.size();
-            int current = list.size();
             for (AwemeList awemeList : list) {
-//                doDownload(awemeList);
                 doSave(awemeList);
             }
-            if (has_more == 1 && total == current) {
-                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor());
+            if (has_more == 1 && all) {
+                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor(), all);
             }
         } catch (Exception e) {
             log.error("findContentWithHandle error", e);
-            findContentWithHandle(shareUrl, maxCursor);
+            findContentWithHandle(shareUrl, maxCursor, all);
         }
     }
 
@@ -414,8 +388,8 @@ public class DownloadService {
     private void discoverFromCollects(Long maxCursor, Long collectsId, List<AwemeList> newAuthors) {
         StringBuilder stringBuilder = fill(new StringBuilder("https://www.douyin.com/aweme/v1/web/collects/video/list/?"));
         stringBuilder.append("&aid=" + AID);
-        stringBuilder.append("&collects_id=" + collectsId);
-        stringBuilder.append("&cursor=" + maxCursor);
+        stringBuilder.append("&collects_id=").append(collectsId);
+        stringBuilder.append("&cursor=").append(maxCursor);
         stringBuilder.append("&count=" + 100);
         stringBuilder.append("&update_version_code=170400");
         stringBuilder.append("&pc_client_type=1");
@@ -444,9 +418,7 @@ public class DownloadService {
         if (CollectionUtils.isEmpty(followings)) {
             return;
         }
-        for (AwemeList follow : followings) {
-            newAuthors.add(follow);
-        }
+        newAuthors.addAll(followings);
         if (Objects.equals(1, collect.getHas_more())) {
             discoverFromCollects(collect.getCursor(), collectsId, newAuthors);
         }
@@ -467,7 +439,7 @@ public class DownloadService {
             createDir(mainImagePath);
             for (int i = 0, imagesSize = images.size(); i < imagesSize; i++) {
                 Images image = images.get(i);
-                Optional<String> first = image.getUrl_list().stream().filter(o -> StringUtils.contains(o, ".jpeg?")).findFirst();
+                Optional<String> first = image.getUrl_list().stream().filter(o -> Strings.CI.contains(o, ".jpeg?")).findFirst();
                 Path imagePath = Paths.get(mainImagePath.toString(), i + ".jpeg");
                 if (!Files.exists(imagePath) && first.isPresent()) {
                     Connection.Response response = HttpUtils.getResponse(first.get());
@@ -491,7 +463,7 @@ public class DownloadService {
                     for (int i = 0, imagesSize = images.size(); i < imagesSize; i++) {
                         Images image = images.get(i);
                         String filename = i + ".jpeg";
-                        Optional<String> first = image.getUrl_list().stream().filter(o -> StringUtils.contains(o, ".jpeg?")).findFirst();
+                        Optional<String> first = image.getUrl_list().stream().filter(o -> Strings.CI.contains(o, ".jpeg?")).findFirst();
                         Path imagePath = Paths.get(imagesPath.toString(), filename);
                         if (!Files.exists(imagePath) && first.isPresent()) {
                             Files.createLink(imagePath, Paths.get(mainImagePath.toString(), filename));
