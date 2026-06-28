@@ -50,7 +50,7 @@ public class DataRecordService {
         DataRecord record = dataRecordRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("记录不存在: " + id));
         record.setStatus(DownloadStatus.DOWNLOADED);
-        return dataRecordRepository.save(record);
+        return dataRecordRepository.saveAndFlush(record);
     }
 
     @Async
@@ -121,7 +121,7 @@ public class DataRecordService {
         record.setStatus(DownloadStatus.PENDING);
         record.setSourceUrl(aweme.getShare_url());
         userService.updateLastPostTime(record.getSecUid(), record.getPublishTime());
-        dataRecordRepository.save(record);
+        dataRecordRepository.saveAndFlush(record);
     }
 
     private Partner convertToPartner(CoCreators coCreator) {

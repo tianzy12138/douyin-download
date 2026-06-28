@@ -64,7 +64,7 @@ public class UserService {
         user.setShareUrl(shareUrl);
         user.setSecUid(secUid);
         user.setNickname(nickname);
-        return userRepository.save(user);
+        return userRepository.saveAndFlush(user);
     }
 
     @Transactional
@@ -78,7 +78,7 @@ public class UserService {
         user.setShareUrl(shareUrl);
         user.setSecUid(secUid);
         user.setNickname(nickname);
-        return userRepository.save(user);
+        return userRepository.saveAndFlush(user);
     }
 
     public User addBySecUid(String secUid, String nickname) {
@@ -87,7 +87,7 @@ public class UserService {
         user.setShareUrl(shareUrl);
         user.setSecUid(secUid);
         user.setNickname(nickname);
-        return userRepository.save(user);
+        return userRepository.saveAndFlush(user);
     }
 
     @Transactional
@@ -95,7 +95,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在: " + id));
         user.setEnabled(enabled);
-        return userRepository.save(user);
+        return userRepository.saveAndFlush(user);
     }
 
     @Transactional
@@ -110,7 +110,7 @@ public class UserService {
             if (Objects.isNull(user.getLastPostTime())
                     || lastPostTime.toLocalDate().isAfter(user.getLastPostTime())) {
                 user.setLastPostTime(lastPostTime.toLocalDate());
-                userRepository.save(user);
+                userRepository.saveAndFlush(user);
             }
         });
     }
