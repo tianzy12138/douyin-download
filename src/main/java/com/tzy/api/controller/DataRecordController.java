@@ -35,10 +35,10 @@ public class DataRecordController {
         return dataRecordService.markAsDownloaded(id);
     }
 
-    @GetMapping("/test")
-    public void test() {
+    @PostMapping("/by-sec-uid/{secUid}")
+    public void addBySecUid(@PathVariable String secUid) {
         User user = new User();
-        user.setShareUrl("https://www.douyin.com/user/MS4wLjABAAAAjupLpdJwYwDw-GzfEmhQeDz8EIzD4LEUBB5qNOBTso4");
+        user.setShareUrl("https://www.douyin.com/user/" + secUid);
         downloadService.downloadUserContent(user, true);
     }
 
