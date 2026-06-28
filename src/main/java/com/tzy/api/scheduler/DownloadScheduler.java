@@ -26,7 +26,7 @@ public class DownloadScheduler {
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
         for (User user : userService.findRandomEnabledUsers()) {
-            downloadService.downloadUserContent(user, false);
+            downloadService.downloadUserContent(user);
             userService.updateSyncTime(user.getId());
         }
         log.info("定时下载任务完成");

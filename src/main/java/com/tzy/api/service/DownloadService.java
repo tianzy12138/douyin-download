@@ -364,21 +364,9 @@ public class DownloadService {
         downloadVideo(Lists.newArrayList(main), video, filename, shareUrl);
     }
 
-    public void downloadUserContent(User user, boolean update) {
-        int attempts = 0;
-        while (attempts < maxAttempts) {
-            try {
+    public void downloadUserContent(User user) {
 //                findContentWithHandle(user.getShareUrl(), 0L, this::doDownload, update);
-                findContentWithHandle(user.getShareUrl(), 0L);
-                return;
-            } catch (Exception e) {
-                attempts++;
-                log.warn("下载失败，第 {} 次重试，用户: {}", attempts, user.getNickname());
-                if (attempts >= maxAttempts) {
-                    log.error("达到最大重试次数，跳过用户: {}", user.getNickname());
-                }
-            }
-        }
+        findContentWithHandle(user.getShareUrl(), 0L);
     }
 
     public void findContentWithHandle(String shareUrl, Long maxCursor) {
