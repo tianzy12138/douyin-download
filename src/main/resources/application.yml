@@ -7,11 +7,17 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 60000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
   h2:
     console:
       enabled: true

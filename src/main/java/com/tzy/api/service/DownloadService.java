@@ -39,14 +39,11 @@ public class DownloadService {
     private static final String ILLEGAL_CHARACTERS_REGEX = "[\\\\/:*?\"<>|\\n.]";
     private static final Pattern PATTERN = Pattern.compile("from\\_aid=(\\d+)");
 
-    @Value("${app.download.base-path}")
+    @Value("${app.download.base-path:}")
     private String basePath;
 
     @Value("${app.download.cookie}")
     private String cookie;
-
-    @Value("${app.retry.max-attempts:3}")
-    private int maxAttempts;
 
     protected ExecutorService threadPool;
 

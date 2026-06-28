@@ -22,7 +22,7 @@ public class DownloadScheduler {
     @Lazy
     private UserService userService;
 
-    @Scheduled(initialDelay = 1L, fixedDelay = 3L, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(initialDelay = 1L, fixedDelay = 1L, timeUnit = TimeUnit.MINUTES)
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
         for (User user : userService.findRandomEnabledUsers()) {
