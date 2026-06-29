@@ -135,6 +135,7 @@ public class UserService {
         if (CollectionUtils.isEmpty(authors)) {
             return;
         }
+        log.info("执行解析收藏任务");
         List<User> existingUsers = findAll();
         Set<String> existingSecUids = existingUsers.stream()
                 .map(User::getSecUid)
