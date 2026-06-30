@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -25,8 +26,9 @@ public class DownloadScheduler {
     @Scheduled(initialDelay = 1L, fixedDelay = 1L, timeUnit = TimeUnit.MINUTES)
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
-        for (User user : userService.findRandomEnabledUsers()) {
-            downloadService.downloadUserContent(user, true);
+        List<User> days = userService.findEnabledUsersByDays(4 * 365);
+        for (User user : days) {
+            downloadService.downloadUserContent(user, false);
             userService.updateSyncTime(user.getId());
         }
         log.info("定时下载任务完成");
