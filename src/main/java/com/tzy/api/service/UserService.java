@@ -45,7 +45,7 @@ public class UserService {
 
     public List<User> findEnabledUsersByDays(int days) {
         LocalDate threshold = LocalDate.now().minusDays(days);
-        LocalDate today = LocalDate.now().minusDays(1);
+        LocalDate today = LocalDate.now();
         return userRepository.findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThan(threshold, today);
     }
 
