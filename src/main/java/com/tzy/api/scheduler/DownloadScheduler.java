@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,7 @@ public class DownloadScheduler {
     private UserService userService;
 
     @Scheduled(initialDelay = 1L, fixedDelay = 1L, timeUnit = TimeUnit.MINUTES)
+    @Async
     public void executeDownloadTask() {
         log.info("定时下载任务开始");
         List<User> days = userService.findEnabledUsersByDays(4 * 365);
@@ -35,6 +37,7 @@ public class DownloadScheduler {
     }
 
     @Scheduled(initialDelay = 1L, fixedDelay = 30L, timeUnit = TimeUnit.MINUTES)
+    @Async
     public void executeCollectsDiscovery() {
         userService.addUserByCollection();
     }
