@@ -20,7 +20,7 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     boolean existsBySecUid(String secUid);
 
-    List<User> findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThanEqual(LocalDate lastPostTime, LocalDate syncTime);
+    List<User> findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThan(LocalDate lastPostTime, LocalDate syncTime);
 
     List<User> findByEnabledTrueAndLastPostTimeLessThanEqual(LocalDateTime lastPostTime);
 

@@ -45,8 +45,8 @@ public class UserService {
 
     public List<User> findEnabledUsersByDays(int days) {
         LocalDate threshold = LocalDate.now().minusDays(days);
-        LocalDate today = LocalDate.now();
-        return userRepository.findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThanEqual(threshold, today);
+        LocalDate today = LocalDate.now().minusDays(1);
+        return userRepository.findByEnabledTrueAndLastPostTimeGreaterThanEqualAndSyncTimeLessThan(threshold, today);
     }
 
     public List<User> findNotPublishUsersByDays(int days) {
