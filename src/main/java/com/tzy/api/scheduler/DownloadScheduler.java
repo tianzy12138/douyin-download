@@ -1,6 +1,5 @@
 package com.tzy.api.scheduler;
 
-import com.tzy.api.entity.User;
 import com.tzy.api.service.DownloadService;
 import com.tzy.api.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +10,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -24,17 +22,17 @@ public class DownloadScheduler {
     @Lazy
     private UserService userService;
 
-    @Scheduled(initialDelay = 1L, fixedDelay = 1L, timeUnit = TimeUnit.MINUTES)
-    @Async
-    public void executeDownloadTask() {
-        log.info("定时下载任务开始");
-        List<User> days = userService.findEnabledUsersByDays(4 * 365);
-        for (User user : days) {
-            downloadService.downloadUserContent(user, false);
-            userService.updateSyncTime(user.getId());
-        }
-        log.info("定时下载任务完成");
-    }
+//    @Scheduled(initialDelay = 1L, fixedDelay = 1L, timeUnit = TimeUnit.MINUTES)
+//    @Async
+//    public void executeDownloadTask() {
+//        log.info("定时下载任务开始");
+//        List<User> days = userService.findEnabledUsersByDays(4 * 365);
+//        for (User user : days) {
+//            downloadService.downloadUserContent(user, false);
+//            userService.updateSyncTime(user.getId());
+//        }
+//        log.info("定时下载任务完成");
+//    }
 
     @Scheduled(initialDelay = 1L, fixedDelay = 30L, timeUnit = TimeUnit.MINUTES)
     @Async
