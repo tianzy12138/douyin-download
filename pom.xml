@@ -98,4 +98,44 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- 建议把 native 打包配置放在 profile 中，平时普通打包不触发，只有加 -Pnative 时才触发 -->
+        <profile>
+            <id>native</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.10.2</version> <!-- 建议使用较新版本 -->
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <!-- 最终生成的二进制文件名 -->
+                            <imageName>app-native</imageName>
+                            <buildArgs>
+                                <!-- 核心：强制静态链接，编译出不依赖宿主机 glibc 的程序，完美适配 Alpine -->
+                                <buildArg>--static</buildArg>
+                                <buildArg>--libc=musl</buildArg>
+                                <buildArg>-H:-CheckToolchain</buildArg>
+                                <!-- 【终极修复】：将日志全家桶与 SpringProperties 一并拉入编译时初始化，斩断最后一个报错源 -->
+                                <buildArg>
+                                    --initialize-at-build-time=org.slf4j,ch.qos.logback,org.apache.logging,org.apache.commons.logging,org.springframework.core.SpringProperties
+                                </buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
