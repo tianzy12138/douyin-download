@@ -134,6 +134,37 @@ public class Tiktok {
         return profile;
     }
 
+    private void deleteDir(DirectoryStream<Path> basePath) throws IOException {
+        if (Objects.isNull(basePath)) {
+            basePath = Files.newDirectoryStream(Paths.get(BASE_PATH));
+        }
+        for (Path path : basePath) {
+            String dirName = path.getName(path.getNameCount() - 1).toString();
+            if (StringUtils.startsWith(dirName, "UID")) {
+                continue;
+            }
+            if (Files.isDirectory(path)) {
+                ArrayList<Path> paths1 = Lists.newArrayList(Files.newDirectoryStream(path));
+                if (CollectionUtils.isEmpty(paths1)) {
+                    System.out.println(path.toString());
+                    Files.delete(path);
+                } else {
+                    for (Path path1 : paths1) {
+                        if (Files.isDirectory(path1)) {
+                            ArrayList<Path> paths = Lists.newArrayList(Files.newDirectoryStream(path1));
+                            if (CollectionUtils.isEmpty(paths)) {
+                                System.out.println(path1);
+                                Files.delete(path1);
+                            } else {
+                                deleteDir(Files.newDirectoryStream(path1));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @SneakyThrows
     private void move(DirectoryStream<Path> basePath) {
         if (Objects.isNull(basePath)) {
