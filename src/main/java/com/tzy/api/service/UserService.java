@@ -147,7 +147,8 @@ public class UserService {
         for (AwemeList aweme : authors) {
             Author author = aweme.getAuthor();
             if (!existingSecUids.contains(author.getSec_uid())) {
-                addBySecUid(author.getSec_uid(), author.getNickname());
+                User user = addBySecUid(author.getSec_uid(), author.getNickname());
+                existingSecUids.add(user.getSecUid());
             }
 //            downloadService.cancelCollect(aweme.getAweme_id());
         }
