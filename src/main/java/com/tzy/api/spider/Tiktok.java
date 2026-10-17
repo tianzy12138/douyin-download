@@ -11,7 +11,6 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
 import org.jsoup.Connection;
 import org.jsoup.nodes.Document;
 
@@ -23,7 +22,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,13 +32,15 @@ import java.util.stream.Stream;
 public class Tiktok {
     public static final String RECORD_FILE = "E:\\1.txt";
     private static final Pattern pattern = Pattern.compile("from\\_aid=(\\d+)");
-    private static final String COOKIE = "enter_pc_once=1; UIFID_TEMP=ee69abbd54cdddb154b01110285f038c0f724c22a9fa6fa6ff8c47d6ab1f845cd9d8b19e25aab7404ad22aba5bd575400235ed6680c0133c7c9e5a4eb0982694c270a7862aa17e67ec959dabca51e021; hevc_supported=true; is_dash_user=1; passport_csrf_token=d1b21f1849e0a2bbceae7b126f93f856; passport_csrf_token_default=d1b21f1849e0a2bbceae7b126f93f856; bd_ticket_guard_client_web_domain=2; n_mh=_7yVq3g2tC6LtBV5sOfmCm8-LrMgWCU850nabGZZQcc; is_staff_user=false; has_biz_token=false; __security_server_data_status=1; UIFID=ee69abbd54cdddb154b01110285f038c0f724c22a9fa6fa6ff8c47d6ab1f845cd9d8b19e25aab7404ad22aba5bd57540f6632a1cfb0b884bcd5318e73d167033a8ab5369f79a7234d39c248658d44d83a19e25cafc46082afcce6265444cda306429ab16b50e1fb058156fea17ba0b9fba62fc51e976db39735f3addbc38738ee10014e918e351fc04ac16f3da839c71bdf6f18fbf4575baac7a3154927c278f; my_rd=2; live_private_user=0; d_ticket=8ec0bf32b478ce7bc68ef8a066480ff92fc72; passport_mfa_token=CjWqwLccB9gI0M7TrX6C0%2FydB5fncKeRhPFu0wQIBZieG9yH1O98w5Uh10T6p9fRsH4btN52zxpKCjwAAAAAAAAAAAAAUHt%2Ffcepry3TCtHgi45111KKmzfSNVn9imsJBAdHpJEomHIG1N25tQevz5rlNL6zfZMQz%2BiSDhj2sdFsIAIiAQM5bpVv; SearchResultListTypeChangedManually=%221%22; SEARCH_RESULT_LIST_TYPE=%22multi%22; live_use_vvc=%22false%22; LivePausePop=%22%257B%2522todayCount%2522%253A2%252C%2522closeNum%2522%253A0%252C%2522todayShowRoom%2522%253A%25227651967398505204489%252C7652008977446013747%2522%252C%2522lastTimer%2522%253A1781627938216%257D%22; theme=%22dark%22; manual_theme=%22dark%22; download_guide=%220%2F%2F1%22; __druidClientInfo=JTdCJTIyY2xpZW50V2lkdGglMjIlM0E0ODElMkMlMjJjbGllbnRIZWlnaHQlMjIlM0E3ODklMkMlMjJ3aWR0aCUyMiUzQTQ4MSUyQyUyMmhlaWdodCUyMiUzQTc4OSUyQyUyMmRldmljZVBpeGVsUmF0aW8lMjIlM0ExJTJDJTIydXNlckFnZW50JTIyJTNBJTIyTW96aWxsYSUyRjUuMCUyMChXaW5kb3dzJTIwTlQlMjAxMC4wJTNCJTIwV2luNjQlM0IlMjB4NjQpJTIwQXBwbGVXZWJLaXQlMkY1MzcuMzYlMjAoS0hUTUwlMkMlMjBsaWtlJTIwR2Vja28pJTIwQ2hyb21lJTJGMTUwLjAuMC4wJTIwU2FmYXJpJTJGNTM3LjM2JTIwRWRnJTJGMTUwLjAuMC4wJTIyJTdE; publish_badge_show_info=%220%2C0%2C0%2C1783238347459%22; FOLLOW_RED_POINT_INFO=%221%22; __live_version__=%221.1.5.3491%22; PhoneResumeUidCacheV1=%7B%2295469136501%22%3A%7B%22time%22%3A1783525576632%2C%22noClick%22%3A0%7D%7D; __security_mc_1_s_sdk_crypt_sdk=1b09bc7f-459d-878d; __security_mc_1_s_sdk_cert_key=d8b12bbc-4f1f-a7c0; live_can_add_dy_2_desktop=%221%22; volume_info=%7B%22isMute%22%3Afalse%2C%22isUserMute%22%3Afalse%2C%22volume%22%3A1%7D; strategyABtestKey=%221783554475.942%22; stream_player_status_params=%22%7B%5C%22is_auto_play%5C%22%3A1%2C%5C%22is_full_screen%5C%22%3A0%2C%5C%22is_full_webscreen%5C%22%3A0%2C%5C%22is_mute%5C%22%3A0%2C%5C%22is_speed%5C%22%3A1%2C%5C%22is_visible%5C%22%3A0%7D%22; is_support_rtm_web_ts=1; stream_recommend_feed_params=%22%7B%5C%22cookie_enabled%5C%22%3Atrue%2C%5C%22screen_width%5C%22%3A1920%2C%5C%22screen_height%5C%22%3A1080%2C%5C%22browser_online%5C%22%3Atrue%2C%5C%22cpu_core_num%5C%22%3A12%2C%5C%22device_memory%5C%22%3A32%2C%5C%22downlink%5C%22%3A10%2C%5C%22effective_type%5C%22%3A%5C%224g%5C%22%2C%5C%22round_trip_time%5C%22%3A100%7D%22; ttwid=1%7CLUMn2KjZsSGIXyjkevud0RsldBWhytL43pmqngktF6Q%7C1783601063%7Cf70ba14bc37b54c4651a47b3dc85c1d1960857cdbd1db09624d232fdbdcb704b; sdk_source_info=7e276470716a68645a606960273f276364697660272927676c715a6d6069756077273f276364697660272927666d776a68605a607d71606b766c6a6b5a7666776c7571273f275e58272927666a6b766a69605a696c6061273f27636469766027292762696a6764695a7364776c6467696076273f275e582729277672715a646971273f2763646976602729277f6b5a666475273f2763646976602729276d6a6e5a6b6a716c273f2763646976602729276c6b6f5a7f6367273f27636469766027292771273f273d343c363335343533363d3234272927676c715a75776a716a666a69273f2763646976602778; bit_env=PoImX0zUxHe9OKOuTm8-h46Dr5hKUc-LiK9mnEIKJNaq6ewTQX0tq8itkU6SIsmTX-0iuSuNhR5I0Yu5I5y22HUq4KFIzRiTmzMd4ssPLa-ILeILp9DfyFXCKmVveOw9Y1ARnK0TNk2j6f_34tj1OhuyKmq-2_ZFzCKW9AsTljEMD-zzRAVUCGctnd0PZeciVgYDYJvYaPhYl0UMFUGm6OOmOYS0S9athS21LdxIetgHB2RRw7lugQDdAiIJZV6iR22QfsI6mlp5ekywF2l_B_VQeVfmuqD_CjHomgy7R5YEytJL8s8Q1EFn46iOyQHjqXzLWCS2kbfj_a4n04x8v9L9HcRZBOgUipfK0iEJYoNGz8jVM-cITDjN0hnmPkG1kjYlE8tMnx6-XVoGG7Xgg3hhuTE-9h3eBSwaKnnSIREu0YCVOFcIsGJdzM0sF4XAGVPP2vdr4L_awYnQgIBzSsGIO2Nk5xDqdgZuuLjvJ_crJTfyZKfumDgJ4ZgpxhxVAOcuWeKU6c6Hb3fBEsvrH2fY3BGMqv_lNcLUpuMrz3A%3D; gulu_source_res=eyJwX2luIjoiYzA3MTE0YzExNzZjYzQ1M2JkZjdkMTQ4Njc5YjhlNWJiN2JjOTVhMmU2MDk1NzIyMjM4MTIzMTUzYjdkNDRmMSJ9; passport_auth_mix_state=bz8hbtqq1nsnwefhnxnb1mkytdjho97lpebnqugxdqy5uxjm; passport_assist_user=CjyvzUIkVsQ5LG5QCHmCHKoPU48hksWoabxmBlAZVQo5glJHRyWCz-BQoHeCQs4y4qM-nbhUG6J3FafdGnkaSgo8AAAAAAAAAAAAAFCjfc0OXeUQ6KydVWosAVNwwtvfCf6192AZxFSeTm1vowX27ZnBRLMi_lEpeDiTZK-pEJWtlg4Yia_WVCABIgEDNz2f_g%3D%3D; sid_guard=23fb74170d0e8e56a75a93556d4d6aaf%7C1783601065%7C5184000%7CMon%2C+07-Sep-2026+12%3A44%3A25+GMT; uid_tt=7bcd19ac78e80ff33951b3c19b677841; uid_tt_ss=7bcd19ac78e80ff33951b3c19b677841; sid_tt=23fb74170d0e8e56a75a93556d4d6aaf; sessionid=23fb74170d0e8e56a75a93556d4d6aaf; sessionid_ss=23fb74170d0e8e56a75a93556d4d6aaf; session_tlb_tag=sttt%7C8%7CI_t0Fw0OjlanWpNVbU1qr_________-kTeox6aZnLtJCwxLMT9kKtSFgXl1ZriuRsXRmSTv__1Q%3D; sid_ucp_v1=1.0.0-KDk0YWYyOTc3NWQ5MDRmY2M0NTU0MzlmMzFhN2Q2N2NmYmUwMDFjMzYKHwj11J3T4wIQqa--0gYY7zEgDDCcp6zVBTgFQPsHSAQaAmxmIiAyM2ZiNzQxNzBkMGU4ZTU2YTc1YTkzNTU2ZDRkNmFhZg; ssid_ucp_v1=1.0.0-KDk0YWYyOTc3NWQ5MDRmY2M0NTU0MzlmMzFhN2Q2N2NmYmUwMDFjMzYKHwj11J3T4wIQqa--0gYY7zEgDDCcp6zVBTgFQPsHSAQaAmxmIiAyM2ZiNzQxNzBkMGU4ZTU2YTc1YTkzNTU2ZDRkNmFhZg; __security_mc_1_s_sdk_sign_data_key_web_protect=e19c51ab-4d5e-8368; login_time=1783601064738; _bd_ticket_crypt_cookie=f5a9f877364e58b7a17907f5b466cfea; DiscoverFeedExposedAd=%7B%7D; IsDouyinActive=true; SelfTabRedDotControl=%5B%7B%22id%22%3A%227625314712414079011%22%2C%22u%22%3A12%2C%22c%22%3A12%7D%2C%7B%22id%22%3A%227642805861626153023%22%2C%22u%22%3A43%2C%22c%22%3A41%7D%2C%7B%22id%22%3A%227619835606722185242%22%2C%22u%22%3A63%2C%22c%22%3A63%7D%2C%7B%22id%22%3A%227431109608435025958%22%2C%22u%22%3A68%2C%22c%22%3A68%7D%2C%7B%22id%22%3A%227322413096730167296%22%2C%22u%22%3A242%2C%22c%22%3A242%7D%2C%7B%22id%22%3A%227623757272627284002%22%2C%22u%22%3A37%2C%22c%22%3A37%7D%2C%7B%22id%22%3A%227657419028637419570%22%2C%22u%22%3A1%2C%22c%22%3A2%7D%2C%7B%22id%22%3A%227619575422582065179%22%2C%22u%22%3A41%2C%22c%22%3A41%7D%2C%7B%22id%22%3A%227643829184016189491%22%2C%22u%22%3A21%2C%22c%22%3A21%7D%2C%7B%22id%22%3A%227647148215980836914%22%2C%22u%22%3A30%2C%22c%22%3A30%7D%2C%7B%22id%22%3A%227624081111957637146%22%2C%22u%22%3A27%2C%22c%22%3A27%7D%2C%7B%22id%22%3A%227649339827865094180%22%2C%22u%22%3A3%2C%22c%22%3A3%7D%2C%7B%22id%22%3A%227641173794203109422%22%2C%22u%22%3A8%2C%22c%22%3A8%7D%2C%7B%22id%22%3A%227631348274598774803%22%2C%22u%22%3A17%2C%22c%22%3A17%7D%2C%7B%22id%22%3A%227642259216715122728%22%2C%22u%22%3A59%2C%22c%22%3A0%7D%5D; bd_ticket_guard_client_data=eyJiZC10aWNrZXQtZ3VhcmQtdmVyc2lvbiI6MiwiYmQtdGlja2V0LWd1YXJkLWl0ZXJhdGlvbi12ZXJzaW9uIjoxLCJiZC10aWNrZXQtZ3VhcmQtcmVlLXB1YmxpYy1rZXkiOiJCS3BwSnYzZTQ2eWI3SHZhR0tidTdoS3JzbkFpQzMrNjd5dHA4Wk92bHlKaEpSb0J2WFdzRCtHQzQrd1hlbHdlYThKU1Q5MnV5WURPTGVnM0tCcTVveDA9IiwiYmQtdGlja2V0LWd1YXJkLXdlYi12ZXJzaW9uIjoyfQ%3D%3D; FOLLOW_LIVE_POINT_INFO=%22MS4wLjABAAAApuob9iqYh2t0x6e8RKSYd_aFQlJrPmPSy7mYw8QdFuc%2F1783612800000%2F0%2F0%2F1783601666464%22; FOLLOW_NUMBER_YELLOW_POINT_INFO=%22MS4wLjABAAAApuob9iqYh2t0x6e8RKSYd_aFQlJrPmPSy7mYw8QdFuc%2F1783612800000%2F1783550309649%2F1783601066464%2F0%22; home_can_add_dy_2_desktop=%221%22; biz_trace_id=326c7182; odin_tt=7ddb0e8c4f657cfbbca2c2a0d9e50d6bf11f1757a326fb5bde797434eb370f0ca2f931bb512cdee14483bc66b59c5a43; bd_ticket_guard_client_data_v2=eyJyZWVfcHVibGljX2tleSI6IkJLcHBKdjNlNDZ5YjdIdmFHS2J1N2hLcnNuQWlDMys2N3l0cDhaT3ZseUpoSlJvQnZYV3NEK0dDNCt3WGVsd2VhOEpTVDkydXlZRE9MZWczS0JxNW94MD0iLCJ0c19zaWduIjoidHMuMi5mMTY5NDFlNThiNjFhODNkMzBlMzhlOWIzM2MxZmJhMDUzOWQ2Y2UyOGJlMWE5NWZiM2RmYTViYmUyZjg4OGQwYzRmYmU4N2QyMzE5Y2YwNTMxODYyNGNlZGExNDkxMWNhNDA2ZGVkYmViZWRkYjJlMzBmY2U4ZDRmYTAyNTc1ZCIsInJlcV9jb250ZW50Ijoic2VjX3RzIiwicmVxX3NpZ24iOiJDN25YVVVucktrbHpQMHEyNnh6eFVrZ3NySEp6eGRLRitNQXk0VHpDTTZrPSIsInNlY190cyI6IiNBNnFkOXR3Z1p0TlJNR1czaTA1SE12dXpXNWlIWURXWUdQekV6SktGbjA3TnZTSVFNa3NaRzh2MkszdlcifQ%3D%3D; playRecommendGuideTagCount=5; totalRecommendGuideTagCount=12";
+    private static final String COOKIE = "enter_pc_once=1; UIFID_TEMP=ee69abbd54cdddb154b01110285f038c0f724c22a9fa6fa6ff8c47d6ab1f845cd9d8b19e25aab7404ad22aba5bd575400235ed6680c0133c7c9e5a4eb0982694c270a7862aa17e67ec959dabca51e021; hevc_supported=true; is_dash_user=1; bd_ticket_guard_client_web_domain=2; n_mh=_7yVq3g2tC6LtBV5sOfmCm8-LrMgWCU850nabGZZQcc; is_staff_user=false; has_biz_token=false; UIFID=ee69abbd54cdddb154b01110285f038c0f724c22a9fa6fa6ff8c47d6ab1f845cd9d8b19e25aab7404ad22aba5bd57540f6632a1cfb0b884bcd5318e73d167033a8ab5369f79a7234d39c248658d44d83a19e25cafc46082afcce6265444cda306429ab16b50e1fb058156fea17ba0b9fba62fc51e976db39735f3addbc38738ee10014e918e351fc04ac16f3da839c71bdf6f18fbf4575baac7a3154927c278f; my_rd=2; live_private_user=0; d_ticket=8ec0bf32b478ce7bc68ef8a066480ff92fc72; SearchResultListTypeChangedManually=%221%22; SEARCH_RESULT_LIST_TYPE=%22multi%22; live_use_vvc=%22false%22; theme=%22dark%22; manual_theme=%22dark%22; __druidClientInfo=JTdCJTIyY2xpZW50V2lkdGglMjIlM0E4NjIlMkMlMjJjbGllbnRIZWlnaHQlMjIlM0E4NTglMkMlMjJ3aWR0aCUyMiUzQTg2MiUyQyUyMmhlaWdodCUyMiUzQTg1OCUyQyUyMmRldmljZVBpeGVsUmF0aW8lMjIlM0ExJTJDJTIydXNlckFnZW50JTIyJTNBJTIyTW96aWxsYSUyRjUuMCUyMChXaW5kb3dzJTIwTlQlMjAxMC4wJTNCJTIwV2luNjQlM0IlMjB4NjQpJTIwQXBwbGVXZWJLaXQlMkY1MzcuMzYlMjAoS0hUTUwlMkMlMjBsaWtlJTIwR2Vja28pJTIwQ2hyb21lJTJGMTUxLjAuMC4wJTIwU2FmYXJpJTJGNTM3LjM2JTIwRWRnJTJGMTUxLjAuMC4wJTIyJTdE; passport_assist_user=CjyQVtbZMzDEySO--ZInbjucIb3450Aa0WSsKndI9fzEnz5OKWdfd5VWTQycMW83XC-zWK_PVKzowrrpsdUaSgo8AAAAAAAAAAAAAFDNSP-zVmcImwkiW1lvGtOdszHOdMFMJCudlCHHeHvXAEL4sPU9mga1vn_KGIgAJzr-EICImg4Yia_WVCABIgEDLWGKSw%3D%3D; uid_tt=410743a203fabf775c9a52e6adf846ca; uid_tt_ss=410743a203fabf775c9a52e6adf846ca; sid_tt=d44126642bfb285b664750a404ea87b4; sessionid=d44126642bfb285b664750a404ea87b4; sessionid_ss=d44126642bfb285b664750a404ea87b4; bd_ticket_guard_ts_sign_id=ts.2.80689ddfcb34b2a; login_time=1787237599156; _bd_ticket_crypt_cookie=0d1f4af857d4aee9c34f4a2a7d5889d8; LivePausePop=%22%257B%2522todayCount%2522%253A1%252C%2522closeNum%2522%253A0%252C%2522todayShowRoom%2522%253A%25227687073350828575515%2522%252C%2522lastTimer%2522%253A1789787243844%257D%22; passport_csrf_token=1fdb0cf54a20bbb578006b66986fd120; passport_csrf_token_default=1fdb0cf54a20bbb578006b66986fd120; JXEntranceNegative=1; __live_version__=%221.1.5.5978%22; volume_info=%7B%22isMute%22%3Afalse%2C%22isUserMute%22%3Afalse%2C%22volume%22%3A1%7D; sid_guard=d44126642bfb285b664750a404ea87b4%7C1791367109%7C5184000%7CSun%2C+06-Dec-2026+09%3A58%3A29+GMT; session_tlb_tag=sttt%7C6%7C1EEmZCv7KFtmR1CkBOqHtP_________BcsA2dq95kihJ9cH3J9YXF3sbUuamm4rcEAAQj5z5unE%3D; sid_ucp_v1=1.0.0-KDAzMzExODE2ZjYzM2VlNTc3MGVkOTBhOWQyZmVkYzUzOTVhZGJlNTEKHwj11J3T4wIQxa-Y1gYY7zEgDDCcp6zVBTgFQPsHSAQaAmxmIiBkNDQxMjY2NDJiZmIyODViNjY0NzUwYTQwNGVhODdiNA; ssid_ucp_v1=1.0.0-KDAzMzExODE2ZjYzM2VlNTc3MGVkOTBhOWQyZmVkYzUzOTVhZGJlNTEKHwj11J3T4wIQxa-Y1gYY7zEgDDCcp6zVBTgFQPsHSAQaAmxmIiBkNDQxMjY2NDJiZmIyODViNjY0NzUwYTQwNGVhODdiNA; __security_mc_1_s_sdk_crypt_sdk=e140f9b7-447a-a6b2; __security_mc_1_s_sdk_cert_key=4f210eda-4312-83dd; __security_mc_1_s_sdk_sign_data_key_web_protect=72b9f185-4b16-8f36; publish_badge_show_info=%220%2C0%2C0%2C1791678464615%22; shareRecommendGuideTagCount=4; is_dbsc=true; is_support_rtm_web_ts=1; SelfTabRedDotControl=%5B%7B%22id%22%3A%227053341385214134302%22%2C%22u%22%3A103%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227694878159191148570%22%2C%22u%22%3A4%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227648145771091232818%22%2C%22u%22%3A62%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227642410508707956787%22%2C%22u%22%3A8%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227642805861626153023%22%2C%22u%22%3A100%2C%22c%22%3A71%7D%2C%7B%22id%22%3A%227642259216715122728%22%2C%22u%22%3A84%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227431109608435025958%22%2C%22u%22%3A82%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227322413096730167296%22%2C%22u%22%3A249%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227623757272627284002%22%2C%22u%22%3A79%2C%22c%22%3A52%7D%2C%7B%22id%22%3A%227642107925468547135%22%2C%22u%22%3A36%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227658142760402978867%22%2C%22u%22%3A30%2C%22c%22%3A14%7D%2C%7B%22id%22%3A%227582901916650768435%22%2C%22u%22%3A162%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227643829184016189491%22%2C%22u%22%3A32%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227617826025392588810%22%2C%22u%22%3A52%2C%22c%22%3A0%7D%2C%7B%22id%22%3A%227631348274598774803%22%2C%22u%22%3A8%2C%22c%22%3A0%7D%5D; PhoneResumeUidCacheV1=%7B%2295469136501%22%3A%7B%22time%22%3A1792251563358%2C%22noClick%22%3A4%7D%7D; FOLLOW_NUMBER_YELLOW_POINT_INFO=%22MS4wLjABAAAApuob9iqYh2t0x6e8RKSYd_aFQlJrPmPSy7mYw8QdFuc%2F1792252800000%2F0%2F1792251563643%2F0%22; playRecommendGuideTagCount=4; totalRecommendGuideTagCount=6; x_tt_token=00d44126642bfb285b664750a404ea87b402eb8de4f5f2ee843f4476215c90b5ad179ea60234dbc2423817aac8bd36194715280018a693a6061671cad34343d99ac939c92b4323da10896f2ca219d99f864872eaea847ec1ff1047af941bbd8d3ab0e--0a490a204f9cfb4858edb7e26d58016e71e9321e7b7bb2fbf51f0de79e1b909e0e6086001220c140277a4e961332c5b66a55aaa355a141cbb2d4c6016566b0a77d81e8163e4718f6b4d309-3.0.4; gulu_source_res=eyJwX2luIjoiNzQ3Y2NkNjA3NTljYTg2MTdkZTkzMzU0MTYwNGVkYTc0ZmFkNDE1MGFiNTI2ZTBkYmZkMDA4ZDUxZWE5NzUzZCJ9; stream_recommend_feed_params=%22%7B%5C%22cookie_enabled%5C%22%3Atrue%2C%5C%22screen_width%5C%22%3A1920%2C%5C%22screen_height%5C%22%3A1080%2C%5C%22browser_online%5C%22%3Atrue%2C%5C%22cpu_core_num%5C%22%3A12%2C%5C%22device_memory%5C%22%3A32%2C%5C%22downlink%5C%22%3A1.6%2C%5C%22effective_type%5C%22%3A%5C%224g%5C%22%2C%5C%22round_trip_time%5C%22%3A0%7D%22; strategyABtestKey=%221792253188.128%22; FOLLOW_LIVE_POINT_INFO=%22MS4wLjABAAAApuob9iqYh2t0x6e8RKSYd_aFQlJrPmPSy7mYw8QdFuc%2F1792339200000%2F0%2F1792253188594%2F0%22; ttwid=1%7CLUMn2KjZsSGIXyjkevud0RsldBWhytL43pmqngktF6Q%7C1792253189%7Cef283f2e0a3ecfb1c2a29334ef7ab1315711c3a6d9620f0ac7bd73e94862a580; home_can_add_dy_2_desktop=%221%22; bd_ticket_guard_client_data=eyJiZC10aWNrZXQtZ3VhcmQtdmVyc2lvbiI6MiwiYmQtdGlja2V0LWd1YXJkLWl0ZXJhdGlvbi12ZXJzaW9uIjoxLCJiZC10aWNrZXQtZ3VhcmQtcmVlLXB1YmxpYy1rZXkiOiJCS3BwSnYzZTQ2eWI3SHZhR0tidTdoS3JzbkFpQzMrNjd5dHA4Wk92bHlKaEpSb0J2WFdzRCtHQzQrd1hlbHdlYThKU1Q5MnV5WURPTGVnM0tCcTVveDA9IiwiYmQtdGlja2V0LWd1YXJkLXdlYi12ZXJzaW9uIjoyfQ%3D%3D; biz_trace_id=c1c0ef76; odin_tt=261716089a5c6831af7651e26cc86451345e006bdb3a00546b69eb858250e85b6ab517a03898e950a20a88f06db63a4f20efd83b17a4d10ec1ee63a50c6f26cebf3e832e0dabfe3c61fbfec8936edde0; sdk_source_info=7e276470716a68645a606960273f276364697660272927676c715a6d6069756077273f276364697660272927666d776a68605a607d71606b766c6a6b5a7666776c7571273f275e58272927666a6b766a69605a696c6061273f27636469766027292762696a6764695a7364776c6467696076273f275e582729277672715a646971273f2763646976602729277f6b5a666475273f2763646976602729276d6a6e5a6b6a716c273f2763646976602729276c6b6f5a7f6367273f27636469766027292771273f273d32303d3c34363037373c3234272927676c715a75776a716a666a69273f2763646976602778; bit_env=T-XJkazdAsS9mqNQQL6Co47XsFh2wvIgqYFppQP_sqimMnZ4hYjBVi9qGinSj1wVtEDYw-5fmFMxEmQs1QNXokrkW-hASfA9jvMLLGbj3og_1e5ECJ9se3EV-LJEdFhuVQzdbih3Z4cGtTgr_TkpViq19PL_rY31ubdMSIe-db2XsN33XICDbJpTe_N3dXkyQCEZp40st0PAqxFTsxydytgVxEd_140iPjgsbNAJXxyVGsmTKAOL-GqZ2_LFdK1c8cfWYIMdMhJ3Yl94ZI-ov9a66d6ojm56pm94YHKU5QYQiiHyn1bxYOMFxvAaHhOmcokkkwj5i7LG7T9rICEBE1iCQwfxlynfPF0aYajUzdrDzC-OcEJHOiWKJkQD2psS37z7rHxq85iCVAQaFaMzSD9Ds5sxZmQ52QwDYqafhlk3LzlBePmMdKSp6vcdp9aOXZ8Xfh1cY52x0aZ5KbyqqDVbehkya5N4qdhZAz8mgwg4ubpyJ5D-OCKQmRlpNtq__f-xska4fzP9HpZ4UbW7TOukz5fUa24SGO4Y_WV5VPQ%3D; passport_auth_mix_state=aezsuvcw428xujf5427yku22myvigtse; IsDouyinActive=true; stream_player_status_params=%22%7B%5C%22is_auto_play%5C%22%3A0%2C%5C%22is_full_screen%5C%22%3A0%2C%5C%22is_full_webscreen%5C%22%3A1%2C%5C%22is_mute%5C%22%3A0%2C%5C%22is_speed%5C%22%3A1%2C%5C%22is_visible%5C%22%3A1%7D%22";
     private static final String NEW_BASE_PATH = "F:\\douyin";
     private static final String AID = "6383";
     private static final String ILLEGAL_CHARACTERS_REGEX = "[\\/:*?\"<>|\\n\\.]";
     private static final String BASE_PATH = "E:\\douyin";
 
     protected ExecutorService threadPool;
+
+    private DouyinBrowserClient browserClient;
 
     public Tiktok() {
         this.threadPool = ThreadPoolUtils.getThreadPool(5, Tiktok.class.getSimpleName());
@@ -57,7 +57,7 @@ public class Tiktok {
 
     public static void main(String[] args) throws Exception {
         Tiktok tiktok = new Tiktok();
-        tiktok.findCollects(0L, 7492594126609848114L);
+//        tiktok.findCollects(0L, 7492594126609848114L);
 //        tiktok.move(null);
         tiktok.jobList(true);
         tiktok.close();
@@ -292,6 +292,12 @@ public class Tiktok {
 
     public void close() {
         threadPool.shutdown();
+        synchronized (this) {
+            if (Objects.nonNull(browserClient)) {
+                browserClient.close();
+                browserClient = null;
+            }
+        }
     }
 
     public void job(String shareUrl, Long maxCursor, boolean update) {
@@ -334,45 +340,55 @@ public class Tiktok {
     }
 
     public List<AwemeList> findAllContent(String shareUrl, Long maxCursor) {
+        return findAllContent(shareUrl, maxCursor, 0);
+    }
+
+    private List<AwemeList> findAllContent(String shareUrl, Long maxCursor, int attempt) {
         List<AwemeList> result = Lists.newArrayList();
-        JsonRootBean jsonRootBean = null;
+        JsonRootBean jsonRootBean;
         try {
             jsonRootBean = findPostsByShareUrl(shareUrl, maxCursor);
         } catch (Exception e) {
-            log.error("findPostsByShareUrl error", e);
-            findAllContent(shareUrl, maxCursor);
+            log.error("findPostsByShareUrl error, attempt={}", attempt, e);
+            return attempt < 3 ? findAllContent(shareUrl, maxCursor, attempt + 1) : result;
         }
         if (Objects.isNull(jsonRootBean)) {
             log.warn("RESPONSE_IS_NULL:{},{}", maxCursor, shareUrl);
-            return result;
+            return attempt < 3 ? findAllContent(shareUrl, maxCursor, attempt + 1) : result;
         }
-        Long status_code = jsonRootBean.getStatus_code();
-        Long has_more = jsonRootBean.getHas_more();
-        if (status_code != 0) {
-            result.addAll(findAllContent(shareUrl, maxCursor));
-            return result;
+        if (!Objects.equals(jsonRootBean.getStatus_code(), 0L)) {
+            log.warn("STATUS_CODE_IS_NOT_ZERO:{},{}", jsonRootBean.getStatus_code(), shareUrl);
+            return attempt < 3 ? findAllContent(shareUrl, maxCursor, attempt + 1) : result;
         }
-        result.addAll(jsonRootBean.getAweme_list());
-        if (has_more == 1) {
-            result.addAll(findAllContent(shareUrl, jsonRootBean.getMax_cursor()));
+        if (CollectionUtils.isNotEmpty(jsonRootBean.getAweme_list())) {
+            result.addAll(jsonRootBean.getAweme_list());
+        }
+        if (Objects.equals(jsonRootBean.getHas_more(), 1L)) {
+            result.addAll(findAllContent(shareUrl, jsonRootBean.getMax_cursor(), 0));
         }
         return result;
     }
 
     public void findContentWithHandle(String shareUrl, Long maxCursor, Consumer<AwemeList> handle, boolean update) {
+        findContentWithHandle(shareUrl, maxCursor, handle, update, 0);
+    }
+
+    private void findContentWithHandle(String shareUrl, Long maxCursor, Consumer<AwemeList> handle, boolean update, int attempt) {
         log.info("正在处理登记数据：{}", shareUrl);
         try {
             JsonRootBean jsonRootBean = findPostsByShareUrl(shareUrl, maxCursor);
             if (Objects.isNull(jsonRootBean)) {
                 log.warn("RESPONSE_IS_NULL: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor, handle, update);
+                if (attempt < 3) {
+                    findContentWithHandle(shareUrl, maxCursor, handle, update, attempt + 1);
+                }
                 return;
             }
-            Long status_code = jsonRootBean.getStatus_code();
-            Long has_more = jsonRootBean.getHas_more();
-            if (status_code != 0) {
+            if (!Objects.equals(jsonRootBean.getStatus_code(), 0L)) {
                 log.warn("STATUS_CODE_IS_NOT_ZERO: {} ,{}", maxCursor, shareUrl);
-                findContentWithHandle(shareUrl, maxCursor, handle, update);
+                if (attempt < 3) {
+                    findContentWithHandle(shareUrl, maxCursor, handle, update, attempt + 1);
+                }
                 return;
             }
             List<AwemeList> list = jsonRootBean.getAweme_list();
@@ -394,12 +410,14 @@ public class Tiktok {
             for (AwemeList awemeList : list) {
                 doDownload(awemeList);
             }
-            if (has_more == 1 && total == current) {
-                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor(), handle, update);
+            if (Objects.equals(jsonRootBean.getHas_more(), 1L) && total == current) {
+                findContentWithHandle(shareUrl, jsonRootBean.getMax_cursor(), handle, update, 0);
             }
         } catch (Exception e) {
-            log.error("findContentWithHandle error", e);
-            findContentWithHandle(shareUrl, maxCursor, handle, update);
+            log.error("findContentWithHandle error, attempt={}", attempt, e);
+            if (attempt < 3) {
+                findContentWithHandle(shareUrl, maxCursor, handle, update, attempt + 1);
+            }
         }
     }
 
@@ -417,22 +435,20 @@ public class Tiktok {
     }
 
     private List<AwemeList> findAllContent(Long maxCursor, String secUid) {
+        return findAllContent(maxCursor, secUid, 0);
+    }
+
+    private List<AwemeList> findAllContent(Long maxCursor, String secUid, int attempt) {
         List<AwemeList> result = Lists.newArrayList();
         JsonRootBean jsonRootBean = findPosts(maxCursor, secUid, AID);
-        if (Objects.isNull(jsonRootBean)) {
-            result.addAll(findAllContent(maxCursor, secUid));
-            return result;
+        if (Objects.isNull(jsonRootBean) || !Objects.equals(jsonRootBean.getStatus_code(), 0L)) {
+            return attempt < 3 ? findAllContent(maxCursor, secUid, attempt + 1) : result;
         }
-        Long status_code = jsonRootBean.getStatus_code();
-        Long has_more = jsonRootBean.getHas_more();
-        if (status_code != 0) {
-            result.addAll(findAllContent(maxCursor, secUid));
-            return result;
+        if (CollectionUtils.isNotEmpty(jsonRootBean.getAweme_list())) {
+            result.addAll(jsonRootBean.getAweme_list());
         }
-        result.addAll(jsonRootBean.getAweme_list());
-        if (has_more == 1) {
-            result.addAll(findAllContent(jsonRootBean.getMax_cursor(), secUid));
-            return result;
+        if (Objects.equals(jsonRootBean.getHas_more(), 1L)) {
+            result.addAll(findAllContent(jsonRootBean.getMax_cursor(), secUid, 0));
         }
         return result;
     }
@@ -659,31 +675,41 @@ public class Tiktok {
         return findPosts(maxCursor, secUserId, AID);
     }
 
-    @SneakyThrows
     public JsonRootBean findPosts(Long maxCursor, String secUserId, String aid) {
-        if (StringUtils.isBlank(secUserId) || StringUtils.isBlank(aid)) {
+        if (StringUtils.isBlank(secUserId)) {
             return null;
         }
-        StringBuilder stringBuilder = fill(new StringBuilder("https://www.douyin.com/aweme/v1/web/aweme/post/?aid=" + AID));
-        stringBuilder.append("&sec_user_id=" + secUserId);
-        stringBuilder.append("&publish_video_strategy_type=2");
-        stringBuilder.append("&from_user_page=1");
-        stringBuilder.append("&version_code=290100");
-        stringBuilder.append("&version_name=29.1.0");
-        stringBuilder.append("&count=100");
-        if (Objects.isNull(maxCursor)) {
-            stringBuilder.append("&max_cursor=0");
-        } else {
-            stringBuilder.append("&max_cursor=").append(maxCursor);
+        String finalAid = StringUtils.isBlank(aid) ? AID : aid;
+        long cursor = Objects.isNull(maxCursor) ? 0L : maxCursor;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                JsonRootBean bean = browserClient().findPosts(cursor, secUserId, finalAid);
+                if (Objects.nonNull(bean) && Objects.equals(bean.getStatus_code(), 0L)) {
+                    return bean;
+                }
+                log.warn("findPosts status={} (attempt {}/3), secUserId={}, cursor={}",
+                        Objects.isNull(bean) ? "null" : bean.getStatus_code(), attempt, secUserId, cursor);
+            } catch (Exception e) {
+                log.warn("findPosts error (attempt {}/3), secUserId={}, cursor={}: {}",
+                        attempt, secUserId, cursor, e.getMessage());
+            }
+            if (attempt < 3) {
+                try {
+                    Thread.sleep(1_000L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            }
         }
-        Document document = HttpUtils.get(stringBuilder.toString(), buildHeader("https://www.douyin.com/user/" + secUserId));
-        String text = document.body().text();
-        if (Strings.CI.contains(text, "X-TT-System-Error")) {
-            log.info("wait 10 mins");
-            Thread.sleep(TimeUnit.MINUTES.toMillis(10));
-            return findPosts(maxCursor, secUserId, aid);
+        return null;
+    }
+
+    private synchronized DouyinBrowserClient browserClient() {
+        if (Objects.isNull(browserClient)) {
+            browserClient = new DouyinBrowserClient(COOKIE);
         }
-        return JSON.parseObject(text, JsonRootBean.class);
+        return browserClient;
     }
 
     private ArrayList<Followings> findAllMyFollow(Long maxCursor) {
@@ -829,6 +855,8 @@ public class Tiktok {
         HashMap<String, String> map = Maps.newHashMap();
         map.put("cookie", COOKIE);
         map.put("referer", refererUrl);
+        // HttpUtils 默认会随机使用 Android/旧浏览器 UA，与桌面 cookie 会话不一致，这里显式覆盖。
+        map.put("user-agent", DouyinBrowserClient.DESKTOP_UA);
         return map;
     }
 
