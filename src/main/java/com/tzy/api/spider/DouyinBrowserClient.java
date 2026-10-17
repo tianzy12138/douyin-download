@@ -4,11 +4,14 @@ import com.alibaba.fastjson.JSON;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.Cookie;
 import com.microsoft.playwright.options.WaitUntilState;
+import com.tzy.api.spider.dto.Collect;
 import com.tzy.api.spider.dto.JsonRootBean;
+import com.tzy.api.spider.dto.MyFollow;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -35,7 +38,18 @@ public final class DouyinBrowserClient implements AutoCloseable {
     private final Object pageLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
+    /**
+     * 公开接口：丢弃旧 ttwid，让页面生成新的，避免被风控的 ttwid 导致空响应。
+     */
     public DouyinBrowserClient(String cookie) {
+        this(cookie, true);
+    }
+
+    /**
+     * @param dropTtwid true 用于公开接口（作品列表）；false 用于登录接口（关注/收藏），
+     *                  登录态需要 cookie 中原有的 ttwid
+     */
+    public DouyinBrowserClient(String cookie, boolean dropTtwid) {
         this.playwright = Playwright.create();
         this.browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                 .setHeadless(true)
@@ -45,7 +59,7 @@ public final class DouyinBrowserClient implements AutoCloseable {
                 .setLocale("zh-CN")
                 .setViewportSize(1920, 1080));
         if (cookie != null && !cookie.isBlank()) {
-            context.addCookies(parseCookies(cookie));
+            context.addCookies(parseCookies(cookie, dropTtwid));
         }
         this.page = context.newPage();
         page.navigate(HOME_URL, new Page.NavigateOptions()
@@ -86,7 +100,7 @@ public final class DouyinBrowserClient implements AutoCloseable {
                 + "&platform=PC&downlink=1.5&effective_type=4g&round_trip_time=100";
     }
 
-    private static List<Cookie> parseCookies(String cookie) {
+    private static List<Cookie> parseCookies(String cookie, boolean dropTtwid) {
         List<Cookie> cookies = new ArrayList<>();
         for (String item : cookie.split(";")) {
             String pair = item.trim();
@@ -97,7 +111,13 @@ public final class DouyinBrowserClient implements AutoCloseable {
             if (eq <= 0) {
                 continue;
             }
-            Cookie c = new Cookie(pair.substring(0, eq), pair.substring(eq + 1));
+            String name = pair.substring(0, eq);
+            // 旧 ttwid 被风控标记后，公开接口会返回 HTTP 200 + 空 body；
+            // 不带它，页面会自动生成新的 ttwid。登录接口则需要保留原 ttwid。
+            if (dropTtwid && "ttwid".equalsIgnoreCase(name)) {
+                continue;
+            }
+            Cookie c = new Cookie(name, pair.substring(eq + 1));
             c.setDomain(".douyin.com");
             c.setPath("/");
             cookies.add(c);
@@ -105,28 +125,93 @@ public final class DouyinBrowserClient implements AutoCloseable {
         return cookies;
     }
 
+    private static void hintLoginIfNeeded(String path) {
+        if (path.contains("/following/") || path.contains("/collects/")) {
+            log.warn("登录接口空响应：COOKIE 可能已过期或被风控，请重新登录后更新 cookie");
+        }
+    }
+
     /**
      * 在页面上下文请求作品列表。返回 null 表示响应为空/不可解析。
      */
     public JsonRootBean findPosts(long maxCursor, String secUserId, String aid) {
         String query = buildQuery(maxCursor, secUserId, aid);
-        String body;
-        synchronized (pageLock) {
-            body = (String) page.evaluate(
-                    "qs => fetch('/aweme/v1/web/aweme/post/?' + qs, "
-                            + "{credentials:'include', headers:{'accept':'application/json, text/plain, */*'}})"
-                            + ".then(r => r.text())",
-                    query);
-        }
-        if (body == null || body.isBlank()) {
+        String body = fetchJson("/aweme/v1/web/aweme/post/", query);
+        if (body == null) {
             log.warn("empty response: secUserId={}, maxCursor={}", secUserId, maxCursor);
             return null;
         }
-        JsonRootBean bean = JSON.parseObject(body, JsonRootBean.class);
-        if (bean == null) {
-            log.warn("invalid json: {}", body.substring(0, Math.min(300, body.length())));
+        return JSON.parseObject(body, JsonRootBean.class);
+    }
+
+    /**
+     * 关注列表（当前登录用户）。maxCursor 对应接口的 max_time。
+     */
+    public MyFollow findMyFollow(long maxCursor, String userId, String secUserId) {
+        String query = "device_platform=webapp&aid=6383&channel=channel_pc_web"
+                + "&user_id=" + userId
+                + "&sec_user_id=" + secUserId
+                + "&pc_client_type=1&is_top=1&address_book_access=0&gps_access=0&source_type=1"
+                + "&update_version_code=170400&version_code=170400&version_name=17.4.0"
+                + "&count=20&max_time=" + maxCursor
+                + "&browser_online=true&cookie_enabled=true&os_name=Windows"
+                + "&screen_width=1920&screen_height=1080"
+                + "&browser_language=zh-CN&browser_platform=Win32"
+                + "&browser_name=Edge&browser_version=155.0.0.0"
+                + "&engine_name=Blink&engine_version=155.0.0.0"
+                + "&os_version=10&cpu_core_num=12&device_memory=32"
+                + "&platform=PC&downlink=1.5&effective_type=4g&round_trip_time=100";
+        String body = fetchJson("/aweme/v1/web/user/following/list/", query);
+        return body == null ? null : JSON.parseObject(body, MyFollow.class);
+    }
+
+    /**
+     * 收藏夹视频列表。maxCursor 对应接口的 cursor。
+     */
+    public Collect findCollects(long maxCursor, long collectsId) {
+        String query = "device_platform=webapp&aid=6383&channel=channel_pc_web"
+                + "&collects_id=" + collectsId
+                + "&cursor=" + maxCursor
+                + "&count=20"
+                + "&update_version_code=170400&pc_client_type=1&pc_libra_divert=Windows"
+                + "&support_h265=1&support_dash=1&version_code=170400&version_name=17.4.0"
+                + "&browser_language=zh-CN&browser_platform=Win32"
+                + "&browser_name=Edge&browser_version=155.0.0.0"
+                + "&engine_name=Blink&engine_version=155.0.0.0"
+                + "&os_version=10&cpu_core_num=12&device_memory=32&platform=PC"
+                + "&downlink=1.5&effective_type=4g&round_trip_time=100"
+                + "&cookie_enabled=true&screen_width=1920&screen_height=1080"
+                + "&browser_online=true&os_name=Windows";
+        String body = fetchJson("/aweme/v1/web/collects/video/list/", query);
+        return body == null ? null : JSON.parseObject(body, Collect.class);
+    }
+
+    /**
+     * 在页面上下文执行 GET，由页面 SDK 自动补 uifid/timestamp/a_bogus/x-secsdk。
+     * 返回 null 表示空响应或非 JSON（通常是风控软拒绝）。
+     */
+    private String fetchJson(String path, String query) {
+        String body;
+        synchronized (pageLock) {
+            body = (String) page.evaluate(
+                    "arg => fetch(arg.path + '?' + arg.query, "
+                            + "{credentials:'include', headers:{'accept':'application/json, text/plain, */*'}})"
+                            + ".then(r => r.text())",
+                    Map.of("path", path, "query", query));
         }
-        return bean;
+        if (body == null || body.isBlank()) {
+            log.warn("empty response: path={}", path);
+            hintLoginIfNeeded(path);
+            return null;
+        }
+        String head = body.trim();
+        if (!head.startsWith("{")) {
+            log.warn("non-json response: path={}, head={}", path,
+                    head.substring(0, Math.min(300, head.length())));
+            hintLoginIfNeeded(path);
+            return null;
+        }
+        return body;
     }
 
     @Override

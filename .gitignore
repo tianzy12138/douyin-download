@@ -61,3 +61,8 @@ build/
 ### VS Code ###
 .vscode/
 *.trace.db
+
+### 本地登录态 / Cookie（敏感，勿提交） ###
+.browser-profile/
+cookies.txt
+login-report.txt

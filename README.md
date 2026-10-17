@@ -91,6 +91,48 @@ mvn exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install
 mvn exec:java -Dexec.mainClass=com.tzy.api.spider.BrowserFetchTest
 ```
 
+### 登录 / Cookie 刷新
+
+Cookie 失效时，用有头浏览器手动登录一次即可：
+
+```bash
+mvn -f D:/work/code/douyin-download/pom.xml exec:java \
+  -Dexec.mainClass=com.tzy.api.spider.LoginCapture \
+  -Ddouyin.work.dir=D:/work/code/douyin-download
+```
+
+- 打开本机 Edge，登录成功后导出 `cookies.txt`，登录态同时保存在 `.browser-profile/`（已 gitignore）
+- `Tiktok.COOKIE` 优先级：`-Ddouyin.cookie` > `-Ddouyin.cookieFile` > `cookies.txt` > 代码内置旧 cookie
+- 实测 `sid_guard` 会话有效期 60 天，`ttwid` 有效期 1 年
+
+### ttwid 刷新
+
+`ttwid` 是匿名设备票据，可随时更换，不存在“风控倒计时”：
+
+```text
+POST https://www.douyin.com/ttwid/check/           # 页面加载时自动调用，续签当前 ttwid
+POST https://www.douyin.com/ttwid/union/register/  # 返回全新的 ttwid（Domain=douyin.com）
+```
+
+`register` 请求体：
+
+```json
+{"region":"cn","aid":6383,"needFid":false,"service":"www.douyin.com",
+ "migrate_info":{"ticket":"","source":"node"},"cbUrlProtocol":"https","union":true}
+```
+
+`https://ttwid.bytedance.com/ttwid/union/register/` 也能返回 ttwid，但 `Domain=bytedance.com`，不会发给 `douyin.com`
+，不要在抖音接口里用。
+
+### 关注列表 / 收藏夹
+
+`findAllMyFollow` / `findCollects` 也已改为浏览器页面内请求，但它们是 **登录接口**：
+
+- 需要有效登录 cookie（包含可用的 `ttwid`、`sessionid`）。
+- 关注列表返回 `status=8`、收藏返回 `status=4`，通常是 cookie 过期/被风控，或 `collects_id` 失效。
+- 公开作品接口会丢弃旧 `ttwid` 以避免被风控的 ttwid 导致 200 空响应；登录接口则保留 ttwid。
+- `application.yml` 的 `app.download.cookie` 由 `DownloadService` 使用，`Tiktok` 不会读取它。
+
 ## 注意事项
 
 1. 需要在浏览器登录抖音网页版后获取Cookie
