@@ -102,8 +102,24 @@ mvn -f D:/work/code/douyin-download/pom.xml exec:java \
 ```
 
 - 打开本机 Edge，登录成功后导出 `cookies.txt`，登录态同时保存在 `.browser-profile/`（已 gitignore）
+- 只有关注列表接口返回 `status_code=0` 才会导出，避免把 6 小时临时会话写进 `cookies.txt`
 - `Tiktok.COOKIE` 优先级：`-Ddouyin.cookie` > `-Ddouyin.cookieFile` > `cookies.txt` > 代码内置旧 cookie
 - 实测 `sid_guard` 会话有效期 60 天，`ttwid` 有效期 1 年
+- 注入 cookie 时会丢弃 `s_v_web_id`，由页面重新生成；旧的 `s_v_web_id` 会让作品接口返回 HTTP 200 + 空 body
+
+运行中登录态失效时（关注 `status=8`、收藏 `status=4`），`Tiktok` 会自动调用同一套登录流程：
+
+1. 关闭旧的登录浏览器；
+2. 打开有头 Edge，等待用户扫码，接口返回 `status_code=0` 后导出 `cookies.txt`；
+3. 重新读取 cookie，重试原来的关注/收藏请求并继续分页。
+
+为避免多线程反复弹窗，5 分钟内只自动尝试一次；登录窗口最长等待 10 分钟。
+
+作品接口未登录时仍返回 `status_code=0`，但会少返回“仅粉丝/朋友可见”的内容。因此每 10
+分钟会先用关注接口检查一次登录态，失效时同样触发自动重新登录，然后继续抓取作品。
+
+`LoginCapture` 默认以 `user.dir` 作为项目目录；如果不是从项目根目录启动，加
+`-Ddouyin.work.dir=D:/work/code/douyin-download`。
 
 ### ttwid 刷新
 

@@ -25,6 +25,10 @@ public final class BrowserFetchTest {
         }
 
         try (DouyinBrowserClient client = new DouyinBrowserClient(Tiktok.COOKIE, false)) {
+            com.tzy.api.spider.dto.Profile profile = client.findProfile(secUid);
+            System.out.println("profile nick=" + (profile == null || profile.getUser() == null
+                    ? null : profile.getUser().getNickname()));
+
             MyFollow follow = client.findMyFollow(0L, Tiktok.FOLLOW_USER_ID, Tiktok.FOLLOW_SEC_UID);
             int followCount = follow == null || follow.getFollowings() == null ? 0 : follow.getFollowings().size();
             System.out.println("follow  status=" + (follow == null ? null : follow.getStatus_code())

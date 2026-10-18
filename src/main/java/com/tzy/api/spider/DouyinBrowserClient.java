@@ -4,14 +4,13 @@ import com.alibaba.fastjson.JSON;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.Cookie;
 import com.microsoft.playwright.options.WaitUntilState;
-import com.tzy.api.spider.dto.Collect;
-import com.tzy.api.spider.dto.JsonRootBean;
-import com.tzy.api.spider.dto.MyFollow;
+import com.tzy.api.spider.dto.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -112,6 +111,11 @@ public final class DouyinBrowserClient implements AutoCloseable {
                 continue;
             }
             String name = pair.substring(0, eq);
+            // 旧的 s_v_web_id（verifyFp）与当前页面生成的 fp 不匹配时，
+            // 服务端会返回 HTTP 200 + 空 body；丢掉它，由页面重新生成。
+            if ("s_v_web_id".equalsIgnoreCase(name)) {
+                continue;
+            }
             // 旧 ttwid 被风控标记后，公开接口会返回 HTTP 200 + 空 body；
             // 不带它，页面会自动生成新的 ttwid。登录接口则需要保留原 ttwid。
             if (dropTtwid && "ttwid".equalsIgnoreCase(name)) {
@@ -187,6 +191,64 @@ public final class DouyinBrowserClient implements AutoCloseable {
     }
 
     /**
+     * 其他用户主页信息。
+     */
+    public Profile findProfile(String secUserId) {
+        String secUid = secUserId == null ? "" : secUserId;
+        int userIdx = secUid.indexOf("/user/");
+        if (userIdx >= 0) {
+            secUid = secUid.substring(userIdx + "/user/".length());
+        }
+        int queryIdx = secUid.indexOf('?');
+        if (queryIdx >= 0) {
+            secUid = secUid.substring(0, queryIdx);
+        }
+        String query = "device_platform=webapp&aid=6383&channel=channel_pc_web"
+                + "&sec_user_id=" + secUid
+                + "&from_user_page=1&cookie_enabled=true&platform=PC";
+        String body = fetchJson("/aweme/v1/web/user/profile/other/", query);
+        if (body == null) {
+            return null;
+        }
+        Profile profile = JSON.parseObject(body, Profile.class);
+        if (profile == null) {
+            log.info(body);
+        }
+        return profile;
+    }
+
+    /**
+     * 关注 / 取关。返回接口原始响应，空响应返回 null。
+     */
+    public String follow(String uid, boolean follow) {
+        String query = "device_platform=webapp&aid=6383&channel=channel_pc_web"
+                + "&pc_client_type=1&pc_libra_divert=Windows&update_version_code=170400"
+                + "&support_h265=1&support_dash=1&version_code=170400&version_name=17.4.0"
+                + "&cookie_enabled=true&screen_width=1920&screen_height=1080"
+                + "&browser_language=zh-CN&browser_platform=Win32"
+                + "&browser_name=Edge&browser_version=155.0.0.0"
+                + "&browser_online=true&engine_name=Blink&engine_version=155.0.0.0"
+                + "&os_name=Windows&os_version=10&cpu_core_num=12&device_memory=32"
+                + "&platform=PC&downlink=1.5&effective_type=4g&round_trip_time=100";
+        String form = "type=" + (follow ? "1" : "0") + "&user_id=" + uid;
+        return postForm("/aweme/v1/web/commit/follow/user/", query, form);
+    }
+
+    /**
+     * 取关所有已记录在文件里的关注用户。
+     */
+    public void cancelFollow(Set<String> recordedLines, List<Followings> followings) {
+        for (Followings f : followings) {
+            String secUid = f.getSec_uid();
+            boolean recorded = secUid != null && recordedLines.stream()
+                    .anyMatch(line -> line != null && line.contains(secUid));
+            if (recorded) {
+                follow(f.getUid(), false);
+            }
+        }
+    }
+
+    /**
      * 在页面上下文执行 GET，由页面 SDK 自动补 uifid/timestamp/a_bogus/x-secsdk。
      * 返回 null 表示空响应或非 JSON（通常是风控软拒绝）。
      */
@@ -209,6 +271,33 @@ public final class DouyinBrowserClient implements AutoCloseable {
             log.warn("non-json response: path={}, head={}", path,
                     head.substring(0, Math.min(300, head.length())));
             hintLoginIfNeeded(path);
+            return null;
+        }
+        return body;
+    }
+
+    /**
+     * 在页面上下文执行 form POST，由页面 SDK 自动补签名。
+     * 返回 null 表示空响应。
+     */
+    private String postForm(String path, String query, String form) {
+        String body;
+        synchronized (pageLock) {
+            body = (String) page.evaluate(
+                    "async (arg) => {"
+                            + "  const r = await fetch(arg.path + '?' + arg.query, {"
+                            + "    method: 'POST', credentials: 'include',"
+                            + "    headers: {'accept': 'application/json, text/plain, */*',"
+                            + "              'content-type': 'application/x-www-form-urlencoded',"
+                            + "              'x-secsdk-csrf-token': 'DOWNGRADE'},"
+                            + "    body: arg.form"
+                            + "  });"
+                            + "  return await r.text();"
+                            + "}",
+                    Map.of("path", path, "query", query, "form", form));
+        }
+        if (body == null || body.isBlank()) {
+            log.warn("empty response: POST {}", path);
             return null;
         }
         return body;
