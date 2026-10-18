@@ -94,7 +94,7 @@ public class Tiktok {
     public static void main(String[] args) {
         Tiktok tiktok = new Tiktok();
 //        tiktok.findCollects(0L, 7492594126609848114L);
-        tiktok.jobList(false);
+        tiktok.jobList(true);
         tiktok.close();
     }
 
