@@ -31,9 +31,9 @@ import java.util.stream.Stream;
 @Slf4j
 public class Tiktok {
     public static final String RECORD_FILE = "E:\\1.txt";
-    private static final Pattern pattern = Pattern.compile("from\\_aid=(\\d+)");
     static final String FOLLOW_USER_ID = "95469136501";
     static final String FOLLOW_SEC_UID = "MS4wLjABAAAApuob9iqYh2t0x6e8RKSYd_aFQlJrPmPSy7mYw8QdFuc";
+    private static final Pattern pattern = Pattern.compile("from\\_aid=(\\d+)");
     private static final String NEW_BASE_PATH = "F:\\douyin";
     private static final String AID = "6383";
     /**
@@ -43,10 +43,6 @@ public class Tiktok {
     private static final Pattern ILLEGAL_PATTERN = Pattern.compile("[\\/:*?\"<>|\\n\\.]");
     private static final Object RELOGIN_LOCK = new Object();
     private static final String BASE_PATH = "E:\\douyin";
-
-    protected ExecutorService threadPool;
-
-    private DouyinBrowserClient browserClient;
     private static final Object LOGIN_CHECK_LOCK = new Object();
     private static final long LOGIN_CHECK_INTERVAL_MS = 10 * 60_000L;
     /**
@@ -55,6 +51,12 @@ public class Tiktok {
     static volatile String COOKIE = resolveCookie();
     private static volatile long lastReloginAt = 0L;
     private static volatile long lastLoginCheckAt = 0L;
+    protected ExecutorService threadPool;
+    private DouyinBrowserClient browserClient;
+
+    public Tiktok() {
+        this.threadPool = ThreadPoolUtils.getThreadPool(5, Tiktok.class.getSimpleName());
+    }
 
     private static String loadFallbackCookie() {
         try (InputStream in = Tiktok.class.getResourceAsStream("/legacy-cookie.txt")) {
@@ -83,10 +85,6 @@ public class Tiktok {
         return FALLBACK_COOKIE;
     }
 
-    public Tiktok() {
-        this.threadPool = ThreadPoolUtils.getThreadPool(5, Tiktok.class.getSimpleName());
-    }
-
     public static String removeIllegalCharacters(String filePath) {
         return filePath == null ? null : ILLEGAL_PATTERN.matcher(filePath).replaceAll("");
     }
@@ -96,6 +94,23 @@ public class Tiktok {
 //        tiktok.findCollects(0L, 7492594126609848114L);
         tiktok.jobList(true);
         tiktok.close();
+    }
+
+    @SneakyThrows
+    private static void delete(DirectoryStream<Path> basePath) {
+        for (Path path : basePath) {
+            if (!Files.isDirectory(path)) {
+                Files.delete(path);
+            } else {
+                DirectoryStream<Path> childPath = Files.newDirectoryStream(path);
+                if (!childPath.iterator().hasNext()) {
+                    Files.delete(path);
+                } else {
+                    delete(Files.newDirectoryStream(path));
+                }
+                Files.delete(path);
+            }
+        }
     }
 
     @SneakyThrows
@@ -122,23 +137,6 @@ public class Tiktok {
             }
             if (error && aweme_count > 0) {
                 Files.write(Paths.get("F:\\2.txt"), (string + "\r\n").getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
-            }
-        }
-    }
-
-    @SneakyThrows
-    private void delete(DirectoryStream<Path> basePath) {
-        for (Path path : basePath) {
-            if (!Files.isDirectory(path)) {
-                Files.delete(path);
-            } else {
-                DirectoryStream<Path> childPath = Files.newDirectoryStream(path);
-                if (!childPath.iterator().hasNext()) {
-                    Files.delete(path);
-                } else {
-                    delete(Files.newDirectoryStream(path));
-                }
-                Files.delete(path);
             }
         }
     }
