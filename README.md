@@ -109,7 +109,7 @@ mvn -f D:/work/code/douyin-download/pom.xml exec:java \
 
 运行中登录态失效时（关注 `status=8`、收藏 `status=4`），`Tiktok` 会自动调用同一套登录流程：
 
-1. 关闭旧的登录浏览器；
+1. 关闭当前浏览器；
 2. 打开有头 Edge，等待用户扫码，接口返回 `status_code=0` 后导出 `cookies.txt`；
 3. 重新读取 cookie，重试原来的关注/收藏请求并继续分页。
 
@@ -117,6 +117,7 @@ mvn -f D:/work/code/douyin-download/pom.xml exec:java \
 
 作品接口未登录时仍返回 `status_code=0`，但会少返回“仅粉丝/朋友可见”的内容。因此每 10
 分钟会先用关注接口检查一次登录态，失效时同样触发自动重新登录，然后继续抓取作品。
+作品请求连续 3 次失败后，也会触发一次自动重新登录再重试，避免只重试、不更新登录态。
 
 `LoginCapture` 默认以 `user.dir` 作为项目目录；如果不是从项目根目录启动，加
 `-Ddouyin.work.dir=D:/work/code/douyin-download`。
@@ -144,9 +145,9 @@ POST https://www.douyin.com/ttwid/union/register/  # 返回全新的 ttwid（Dom
 
 `findAllMyFollow` / `findCollects` 也已改为浏览器页面内请求，但它们是 **登录接口**：
 
-- 需要有效登录 cookie（包含可用的 `ttwid`、`sessionid`）。
+- 需要有效的登录 cookie（主要是 `sessionid`）。
 - 关注列表返回 `status=8`、收藏返回 `status=4`，通常是 cookie 过期/被风控，或 `collects_id` 失效。
-- 公开作品接口会丢弃旧 `ttwid` 以避免被风控的 ttwid 导致 200 空响应；登录接口则保留 ttwid。
+- 所有页面内请求都会丢弃旧 `ttwid`，由页面重新生成；旧 ttwid 被风控时会导致作品接口返回 200 空 body。丢弃 ttwid 不影响登录态。
 - `application.yml` 的 `app.download.cookie` 由 `DownloadService` 使用，`Tiktok` 不会读取它。
 
 ## 注意事项

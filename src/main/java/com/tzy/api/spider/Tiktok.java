@@ -93,6 +93,7 @@ public class Tiktok {
 
     public static void main(String[] args) {
         Tiktok tiktok = new Tiktok();
+//        tiktok.findCollects(0L, 7492594126609848114L);
         tiktok.jobList(false);
         tiktok.close();
     }
@@ -689,9 +690,23 @@ public class Tiktok {
         ensureLogin();
         String finalAid = StringUtils.isBlank(aid) ? AID : aid;
         long cursor = Objects.isNull(maxCursor) ? 0L : maxCursor;
+
+        JsonRootBean bean = findPostsWithRetry(cursor, secUserId, finalAid);
+        if (Objects.nonNull(bean)) {
+            return bean;
+        }
+        log.warn("findPosts 连续失败，尝试重新登录后重试, secUserId={}, cursor={}", secUserId, cursor);
+        if (reLogin()) {
+            lastLoginCheckAt = 0L;
+            bean = findPostsWithRetry(cursor, secUserId, finalAid);
+        }
+        return bean;
+    }
+
+    private JsonRootBean findPostsWithRetry(long cursor, String secUserId, String aid) {
         for (int attempt = 1; attempt <= 3; attempt++) {
             try {
-                JsonRootBean bean = browserClient().findPosts(cursor, secUserId, finalAid);
+                JsonRootBean bean = browserClient().findPosts(cursor, secUserId, aid);
                 if (Objects.nonNull(bean) && Objects.equals(bean.getStatus_code(), 0L)) {
                     return bean;
                 }
@@ -715,8 +730,9 @@ public class Tiktok {
 
     private synchronized DouyinBrowserClient browserClient() {
         if (Objects.isNull(browserClient)) {
-            // 作品接口也带登录态：未登录时仍返回 status=0，但会少返回仅粉丝/朋友可见的内容
-            browserClient = new DouyinBrowserClient(COOKIE, false);
+            // 保留登录 cookie，但丢弃可能被风控的 ttwid，由页面重新生成；
+            // 旧 ttwid 会导致作品接口返回 HTTP 200 + 空 body
+            browserClient = new DouyinBrowserClient(COOKIE, true);
         }
         return browserClient;
     }
