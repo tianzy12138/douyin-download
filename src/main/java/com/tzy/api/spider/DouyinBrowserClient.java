@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -30,12 +31,22 @@ public final class DouyinBrowserClient implements AutoCloseable {
 
     private static final String HOME_URL = "https://www.douyin.com/jingxuan";
 
+    /**
+     * page.evaluate 在 Playwright Java 中是 NO_TIMEOUT，页面不响应时会永久阻塞。
+     */
+    private static final long EVALUATE_TIMEOUT_SECONDS = 15;
+
     private final Playwright playwright;
     private final Browser browser;
     private final BrowserContext context;
     private final Page page;
     private final Object pageLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final ExecutorService evaluator = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "playwright-evaluate");
+        t.setDaemon(true);
+        return t;
+    });
 
     /**
      * 公开接口：丢弃旧 ttwid，让页面生成新的，避免被风控的 ttwid 导致空响应。
@@ -50,8 +61,11 @@ public final class DouyinBrowserClient implements AutoCloseable {
      */
     public DouyinBrowserClient(String cookie, boolean dropTtwid) {
         this.playwright = Playwright.create();
+        // 使用完整 Chromium 的新 headless 模式：旧的 headless shell 会被抖音风控
+        // 返回 HTTP 200 + 空 body，并让页面 SDK 卡死。
         this.browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
                 .setHeadless(true)
+                .setChannel("chromium")
                 .setArgs(List.of("--disable-blink-features=AutomationControlled")));
         this.context = browser.newContext(new Browser.NewContextOptions()
                 .setUserAgent(DESKTOP_UA)
@@ -203,10 +217,22 @@ public final class DouyinBrowserClient implements AutoCloseable {
         if (queryIdx >= 0) {
             secUid = secUid.substring(0, queryIdx);
         }
+        // 与浏览器实际请求保持一致；webid/uifid/msToken/a_bogus 由页面上下文补
         String query = "device_platform=webapp&aid=6383&channel=channel_pc_web"
+                + "&publish_video_strategy_type=2&source=channel_pc_web"
                 + "&sec_user_id=" + secUid
-                + "&from_user_page=1&cookie_enabled=true&platform=PC";
-        String body = fetchJson("/aweme/v1/web/user/profile/other/", query);
+                + "&personal_center_strategy=1&profile_other_record_enable=1&land_to=1"
+                + "&update_version_code=170400&pc_client_type=1&pc_libra_divert=Windows"
+                + "&support_h265=1&support_dash=1&cpu_core_num=12"
+                + "&version_code=170400&version_name=17.4.0"
+                + "&cookie_enabled=true&screen_width=1920&screen_height=1080"
+                + "&browser_language=zh-CN&browser_platform=Win32"
+                + "&browser_name=Edge&browser_version=155.0.0.0"
+                + "&browser_online=true&engine_name=Blink&engine_version=155.0.0.0"
+                + "&os_name=Windows&os_version=10&device_memory=32&platform=PC"
+                + "&downlink=10&effective_type=4g&round_trip_time=50";
+        String body = fetchJson("/aweme/v1/web/user/profile/other/", query,
+                "https://www.douyin.com/user/" + secUid);
         if (body == null) {
             return null;
         }
@@ -249,17 +275,82 @@ public final class DouyinBrowserClient implements AutoCloseable {
     }
 
     /**
+     * 带超时的 page.evaluate。超时后关闭浏览器，调用方下次 browserClient() 会自动重建。
+     */
+    private Object evaluate(String script, Object arg) {
+        Future<Object> future = evaluator.submit(() -> page.evaluate(script, arg));
+        try {
+            return future.get(EVALUATE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("page.evaluate 超时 {}s，异步关闭浏览器等待重建", EVALUATE_TIMEOUT_SECONDS);
+            // close() 本身也可能卡在无响应的 driver 上，不能阻塞当前线程
+            closed.set(true);
+            Thread closer = new Thread(this::cleanup, "playwright-close");
+            closer.setDaemon(true);
+            closer.start();
+            throw new PlaywrightException("page.evaluate timeout");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new PlaywrightException("page.evaluate interrupted");
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof PlaywrightException playwrightException) {
+                throw playwrightException;
+            }
+            throw new PlaywrightException(cause == null ? "evaluate failed" : cause.toString());
+        }
+    }
+
+    public boolean isClosed() {
+        return closed.get();
+    }
+
+    /**
      * 在页面上下文执行 GET，由页面 SDK 自动补 uifid/timestamp/a_bogus/x-secsdk。
      * 返回 null 表示空响应或非 JSON（通常是风控软拒绝）。
      */
     private String fetchJson(String path, String query) {
+        return fetchJson(path, query, null);
+    }
+
+    private String fetchJson(String path, String query, String referrer) {
         String body;
         synchronized (pageLock) {
-            body = (String) page.evaluate(
-                    "arg => fetch(arg.path + '?' + arg.query, "
-                            + "{credentials:'include', headers:{'accept':'application/json, text/plain, */*'}})"
-                            + ".then(r => r.text())",
-                    Map.of("path", path, "query", query));
+            try {
+                // fetch 挂起时 page.evaluate 没有超时，会永久卡住并占住 pageLock
+                body = (String) evaluate(
+                        "async arg => {"
+                                + "  const c = new AbortController();"
+                                + "  const t = setTimeout(() => c.abort(), 15000);"
+                                + "  try {"
+                                + "    const cookies = {};"
+                                + "    document.cookie.split(';').forEach(s => {"
+                                + "      const i = s.indexOf('=');"
+                                + "      if (i > 0) cookies[s.slice(0, i).trim()] = s.slice(i + 1).trim();"
+                                + "    });"
+                                + "    const uifid = cookies['UIFID'] || '';"
+                                + "    const webid = cookies['webid'] || localStorage.getItem('webid')"
+                                + "      || (window.SDKRuntime && window.SDKRuntime.webid) || '';"
+                                + "    const msToken = cookies['msToken'] || localStorage.getItem('msToken') || '';"
+                                + "    let q = arg.query;"
+                                + "    if (uifid) q += '&uifid=' + encodeURIComponent(uifid);"
+                                + "    if (webid) q += '&webid=' + encodeURIComponent(webid);"
+                                + "    if (msToken) q += '&msToken=' + encodeURIComponent(msToken);"
+                                + "    const headers = {'accept': 'application/json, text/plain, */*'};"
+                                + "    if (uifid) headers['uifid'] = uifid;"
+                                + "    const opts = {credentials: 'include', signal: c.signal, headers};"
+                                + "    if (arg.referrer) opts.referrer = arg.referrer;"
+                                + "    const r = await fetch(arg.path + '?' + q, opts);"
+                                + "    return await r.text();"
+                                + "  } finally { clearTimeout(t); }"
+                                + "}",
+                        Map.of("path", path, "query", query,
+                                "referrer", referrer == null ? "" : referrer));
+            } catch (PlaywrightException e) {
+                log.warn("fetch failed/timeout: path={}, {}", path, e.getMessage());
+                hintLoginIfNeeded(path);
+                return null;
+            }
         }
         if (body == null || body.isBlank()) {
             log.warn("empty response: path={}", path);
@@ -283,18 +374,27 @@ public final class DouyinBrowserClient implements AutoCloseable {
     private String postForm(String path, String query, String form) {
         String body;
         synchronized (pageLock) {
-            body = (String) page.evaluate(
-                    "async (arg) => {"
-                            + "  const r = await fetch(arg.path + '?' + arg.query, {"
-                            + "    method: 'POST', credentials: 'include',"
-                            + "    headers: {'accept': 'application/json, text/plain, */*',"
-                            + "              'content-type': 'application/x-www-form-urlencoded',"
-                            + "              'x-secsdk-csrf-token': 'DOWNGRADE'},"
-                            + "    body: arg.form"
-                            + "  });"
-                            + "  return await r.text();"
-                            + "}",
-                    Map.of("path", path, "query", query, "form", form));
+            try {
+                body = (String) evaluate(
+                        "async (arg) => {"
+                                + "  const c = new AbortController();"
+                                + "  const t = setTimeout(() => c.abort(), 15000);"
+                                + "  try {"
+                                + "    const r = await fetch(arg.path + '?' + arg.query, {"
+                                + "      method: 'POST', credentials: 'include', signal: c.signal,"
+                                + "      headers: {'accept': 'application/json, text/plain, */*',"
+                                + "                'content-type': 'application/x-www-form-urlencoded',"
+                                + "                'x-secsdk-csrf-token': 'DOWNGRADE'},"
+                                + "      body: arg.form"
+                                + "    });"
+                                + "    return await r.text();"
+                                + "  } finally { clearTimeout(t); }"
+                                + "}",
+                        Map.of("path", path, "query", query, "form", form));
+            } catch (PlaywrightException e) {
+                log.warn("POST failed/timeout: path={}, {}", path, e.getMessage());
+                return null;
+            }
         }
         if (body == null || body.isBlank()) {
             log.warn("empty response: POST {}", path);
@@ -308,6 +408,11 @@ public final class DouyinBrowserClient implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
+        cleanup();
+    }
+
+    private void cleanup() {
+        evaluator.shutdownNow();
         try {
             browser.close();
         } catch (Exception e) {

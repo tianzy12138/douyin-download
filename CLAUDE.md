@@ -4,29 +4,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用命令
 
-```bash
-./mvnw spring-boot:run        # 开发运行（Windows 用 mvnw.cmd）
-./mvnw clean package          # 构建 jar
-./mvnw -Pnative package       # GraalVM native（--static --libc=musl）
+项目没有 Maven Wrapper，使用本机 Maven：`D:\Program Files\apache-maven-3.9.16`。
+
+```powershell
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' spring-boot:run   # 开发运行
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' clean package     # 构建 jar
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' -Pnative package  # GraalVM native（--static --libc=musl）
 ```
 
 Playwright 浏览器二进制（首次运行或换机器时需要）：
 
-```bash
-./mvnw exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
+```powershell
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
 ```
 
 手工登录 / 导出 Cookie（Cookie 失效时）：
 
-```bash
-./mvnw exec:java -Dexec.mainClass=com.tzy.api.spider.LoginCapture \
+```powershell
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' exec:java -Dexec.mainClass=com.tzy.api.spider.LoginCapture `
   -Ddouyin.work.dir=D:/work/code/douyin-download
 ```
 
 接口自检（作品 / 关注 / 收藏，无 JUnit 测试套件）：
 
-```bash
-./mvnw exec:java -Dexec.mainClass=com.tzy.api.spider.BrowserFetchTest
+```powershell
+& 'D:\Program Files\apache-maven-3.9.16\bin\mvn.cmd' exec:java -Dexec.mainClass=com.tzy.api.spider.BrowserFetchTest
 ```
 
 仓库里没有 `src/test`，验证依赖上述 main 类与真实抖音接口。

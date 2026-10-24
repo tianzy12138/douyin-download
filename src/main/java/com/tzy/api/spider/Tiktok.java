@@ -45,6 +45,7 @@ public class Tiktok {
     private static final String BASE_PATH = "E:\\douyin";
     private static final Object LOGIN_CHECK_LOCK = new Object();
     private static final long LOGIN_CHECK_INTERVAL_MS = 10 * 60_000L;
+    private static final long LOGIN_RECHECK_INTERVAL_MS = 60_000L;
     /**
      * 优先级：-Ddouyin.cookie > cookies.txt > 内置旧 cookie。
      */
@@ -91,8 +92,9 @@ public class Tiktok {
 
     public static void main(String[] args) {
         Tiktok tiktok = new Tiktok();
-//        tiktok.findCollects(0L, 7492594126609848114L);
+        tiktok.findCollects(0L, 7492594126609848114L);
         tiktok.jobList(true);
+//        tiktok.confirm();
         tiktok.close();
     }
 
@@ -115,17 +117,24 @@ public class Tiktok {
 
     @SneakyThrows
     private void confirm() {
-        ArrayList<String> filePaths = Lists.newArrayList("F:\\unknown.txt");
+        ArrayList<String> filePaths = Lists.newArrayList("E:\\1.txt");
         Set<String> strings = Sets.newHashSet();
         for (String filePath : filePaths) {
             strings.addAll(Files.readAllLines(Paths.get(filePath)));
         }
         for (String string : strings) {
+            // 每 10 分钟用关注接口探活，登录失效时在这里自动重新登录
+            ensureLogin();
             String http = StringUtils.substringAfter(string, "http");
             Profile profile = browserClient().findProfile("http" + http);
+            if ((Objects.isNull(profile) || Objects.isNull(profile.getUser())
+                    || Objects.isNull(profile.getUser().getAweme_count()))
+                    && reloginIfLoginInvalid()) {
+                profile = browserClient().findProfile("http" + http);
+            }
             boolean error = true;
             Integer aweme_count = 0;
-            if (Objects.isNull(profile)) {
+            if (Objects.isNull(profile) || Objects.isNull(profile.getUser())) {
                 error = false;
             } else {
                 Integer aweme_count1 = profile.getUser().getAweme_count();
@@ -136,7 +145,10 @@ public class Tiktok {
                 }
             }
             if (error && aweme_count > 0) {
-                Files.write(Paths.get("F:\\2.txt"), (string + "\r\n").getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+                Files.write(Paths.get("E:\\2.txt"), (string + "\r\n").getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
+            } else {
+                System.out.println(string);
+                Files.write(Paths.get("E:\\3.txt"), (string + "\r\n").getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.APPEND);
             }
         }
     }
@@ -727,7 +739,7 @@ public class Tiktok {
     }
 
     private synchronized DouyinBrowserClient browserClient() {
-        if (Objects.isNull(browserClient)) {
+        if (Objects.isNull(browserClient) || browserClient.isClosed()) {
             // 保留登录 cookie，但丢弃可能被风控的 ttwid，由页面重新生成；
             // 旧 ttwid 会导致作品接口返回 HTTP 200 + 空 body
             browserClient = new DouyinBrowserClient(COOKIE, true);
@@ -755,6 +767,31 @@ public class Tiktok {
                 }
             } catch (Exception e) {
                 log.warn("作品抓取前登录态检查异常: {}", e.getMessage());
+            } finally {
+                lastLoginCheckAt = System.currentTimeMillis();
+            }
+        }
+    }
+
+    /**
+     * profile 空响应时调用：先用关注接口确认登录态，确实失效才重新登录。
+     * 1 分钟内最多探活一次，避免空响应逐条触发。
+     *
+     * @return true 表示刚完成重新登录
+     */
+    private boolean reloginIfLoginInvalid() {
+        if (System.currentTimeMillis() - lastLoginCheckAt < LOGIN_RECHECK_INTERVAL_MS) {
+            return false;
+        }
+        synchronized (LOGIN_CHECK_LOCK) {
+            if (System.currentTimeMillis() - lastLoginCheckAt < LOGIN_RECHECK_INTERVAL_MS) {
+                return false;
+            }
+            try {
+                return reLogin();
+            } catch (Exception e) {
+                log.warn("登录态检查异常: {}", e.getMessage());
+                return false;
             } finally {
                 lastLoginCheckAt = System.currentTimeMillis();
             }
